@@ -8,8 +8,10 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Phase 2 (Phase 1 complete)
+- **Active phase:** Phase 3 (Phases 1–2 complete)
 - **Last updated:** 2026-07-23
+- Phase 2 domain layer lives in `src/domain/` (types, modes, palette, factory, charOps,
+  screenOps, ca65, commands, serialization) with specs in `src/domain/__tests__/`.
 - Note: Pages deployment is configured but unverified — the repo has no GitHub remote yet.
   Verify the workflow after the first push (also enable Pages via repo Settings → Pages → Source: GitHub Actions).
 
@@ -169,14 +171,15 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** blank app with theme + one tooltipped button deploys to Pages.
 
 ### Phase 2 — Domain Core (no UI)
-- [ ] Types for the project schema (§5), palette constants (§4.1), mode metadata (§4.4 dims/cell sizes)
-- [ ] Project factory per mode (sensible defaults: blank charset, fg=white/bg=black-equivalents, one empty screen)
-- [ ] Character ops as pure functions: set/clear pixel, fill, clear, invert, shift L/R/U/D (wrap), rotate L/R, flip H/V
-- [ ] Screen ops as pure functions: set/clear cell, fill, clear, shift L/R/U/D (wrap), rotate L/R (see note), flip H/V
-- [ ] ca65 formatter: `.byte $XX, $XX, ...` for a character
-- [ ] Command layer: `Command {do, undo, label}`, history stack with coalescing for drag strokes
-- [ ] Serialization: to/from JSON with `version` field + validation of uploaded files
-- [ ] Vitest coverage for all of the above
+- [x] Types for the project schema (§5), palette constants (§4.1), mode metadata (§1 dims/cell sizes)
+- [x] Project factory per mode (sensible defaults: blank charset, fg=white/bg=black-equivalents, one empty screen)
+- [x] Character ops as pure functions: set/clear pixel, fill, clear, invert, shift L/R/U/D (wrap), rotate L/R, flip H/V
+- [x] Screen ops as pure functions: set/clear cell, fill, clear, shift L/R/U/D (wrap), rotate L/R (see note), flip H/V
+- [x] ca65 formatter: `.byte $XX, $XX, ...` for a character
+- [x] Command layer: `Command {do, undo, label}`, history stack with coalescing for drag strokes
+      (batch API: `beginBatch`/`endBatch`; undo mid-batch commits the open batch first)
+- [x] Serialization: to/from JSON with `version` field + validation of uploaded files
+- [x] Vitest coverage for all of the above (76 domain tests)
 - **Exit criteria:** all domain tests green; no UI changes.
 - **Note:** rotating a non-square screen (32×24) can't rotate in place — rotate the *content*
   within the same bounds (cells falling outside are dropped, vacated cells cleared). Flag in UI copy.
