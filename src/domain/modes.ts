@@ -64,3 +64,15 @@ export const MODES: Record<ProjectType, ModeInfo> = {
 export function charsetCount(type: ProjectType, g2CharsetMode?: G2CharsetMode): number {
   return type === 'graphics2' && g2CharsetMode === 'independent' ? 3 : 1
 }
+
+/**
+ * Charset a screen row renders from. Independent GMII splits the screen into
+ * thirds (rows 0–7 / 8–15 / 16–23 → sets 0/1/2); everything else uses set 0.
+ */
+export function charsetForRow(
+  type: ProjectType,
+  g2CharsetMode: G2CharsetMode | undefined,
+  row: number,
+): number {
+  return type === 'graphics2' && g2CharsetMode === 'independent' ? Math.floor(row / 8) : 0
+}

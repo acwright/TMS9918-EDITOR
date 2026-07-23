@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { onMounted, ref, useTemplateRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { Copy, Download, Pencil, Plus, Trash2, Upload, X } from 'lucide-vue-next'
+import { Copy, Download, Github, Pencil, Plus, Trash2, Upload, X } from 'lucide-vue-next'
 import AppButton from '@/components/base/AppButton.vue'
 import AppDialog from '@/components/base/AppDialog.vue'
 import AppTextInput from '@/components/base/AppTextInput.vue'
@@ -9,12 +9,33 @@ import NewProjectDialog from '@/components/projects/NewProjectDialog.vue'
 import { MODES } from '@/domain/modes'
 import type { CreateProjectOptions } from '@/domain/factory'
 import type { ProjectSummary } from '@/persistence/repository'
+import { SAMPLES, type Sample } from '@/samples'
 import { useProjectsStore } from '@/stores/projects'
 
 const store = useProjectsStore()
 const router = useRouter()
 
 onMounted(() => store.refresh())
+
+// N opens the new-project dialog (disabled while typing or in a dialog)
+function onKeydown(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null
+  if (
+    event.metaKey ||
+    event.ctrlKey ||
+    event.altKey ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target?.isContentEditable ||
+    document.querySelector('dialog[open]')
+  ) {
+    return
+  }
+  if (event.key.toLowerCase() === 'n') showNewProject.value = true
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 function openProject(id: string) {
   router.push(`/edit/${id}`)
@@ -30,6 +51,12 @@ function onCreate(options: CreateProjectOptions) {
     openProject(project.id)
   }
   // On failure the dialog stays open; the error banner explains why.
+}
+
+// --- Samples ---
+function loadSample(sample: Sample) {
+  const project = store.createFrom(sample.build())
+  if (project) openProject(project.id)
 }
 
 // --- Rename ---
@@ -169,6 +196,38 @@ function formatDate(iso: string): string {
       <p class="font-display text-2xl tracking-wider">No projects yet</p>
       <p class="text-sm">Create a new project or upload a saved one</p>
     </div>
+
+    <section class="mt-8">
+      <h2 class="font-display mb-2 text-sm tracking-wider text-ink-400">Load a Sample</h2>
+      <div class="grid gap-2 sm:grid-cols-3">
+        <button
+          v-for="sample in SAMPLES"
+          :key="sample.id"
+          type="button"
+          class="cursor-pointer rounded-md border border-ink-800 bg-ink-900 p-3 text-left transition-colors hover:border-ink-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-300"
+          @click="loadSample(sample)"
+        >
+          <span class="font-display block text-lg tracking-wider">{{ sample.name }}</span>
+          <span class="mt-0.5 block text-xs text-ink-500">{{ sample.description }}</span>
+        </button>
+      </div>
+    </section>
+
+    <footer
+      class="mt-8 flex items-center justify-between border-t border-ink-800 pt-4 text-xs text-ink-500"
+    >
+      <p>© 2026 A.C. Wright Design</p>
+      <a
+        href="https://github.com/acwright/TMS9918-EDITOR"
+        target="_blank"
+        rel="noopener"
+        class="flex items-center gap-1.5 transition-colors hover:text-ink-200"
+        aria-label="GitHub repository"
+      >
+        <Github class="size-4" />
+        <span>GitHub</span>
+      </a>
+    </footer>
 
     <NewProjectDialog v-model="showNewProject" @create="onCreate" />
 

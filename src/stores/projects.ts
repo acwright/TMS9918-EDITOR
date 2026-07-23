@@ -56,6 +56,13 @@ export const useProjectsStore = defineStore('projects', () => {
     return project
   }
 
+  /** Persist a fully-formed project (e.g. a bundled sample) and list it. */
+  function createFrom(project: Project): Project | null {
+    if (!persist(project)) return null
+    refresh()
+    return project
+  }
+
   function open(id: string): Project | null {
     flushAutosave()
     const project = repository.load(id)
@@ -175,6 +182,7 @@ export const useProjectsStore = defineStore('projects', () => {
     lastError,
     refresh,
     create,
+    createFrom,
     open,
     close,
     rename,

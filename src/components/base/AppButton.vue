@@ -25,7 +25,7 @@ defineEmits<{ click: [event: MouseEvent] }>()
   <AppTooltip :label="label" :shortcut="shortcut" :placement="placement">
     <button
       type="button"
-      class="inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-sm border px-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-300 disabled:cursor-not-allowed disabled:opacity-40"
+      class="inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-sm border px-1.5 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-300 disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:h-10 pointer-coarse:min-w-10"
       :class="
         active
           ? 'border-ink-300 bg-ink-100 text-ink-950 hover:bg-ink-200'

@@ -1,15 +1,29 @@
 import { describe, it, expect } from 'vitest'
+import { nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import AppButton from '../AppButton.vue'
 
 describe('AppButton', () => {
-  it('renders label as tooltip and aria-label, with shortcut key cap', () => {
+  it('exposes the label as the accessible name', () => {
     const wrapper = mount(AppButton, {
       props: { label: 'Undo', shortcut: 'Ctrl+Z' },
     })
     expect(wrapper.get('button').attributes('aria-label')).toBe('Undo')
-    expect(wrapper.get('[role="tooltip"]').text()).toContain('Undo')
-    expect(wrapper.get('kbd').text()).toBe('Ctrl+Z')
+  })
+
+  it('shows the tooltip with its shortcut on hover', async () => {
+    const wrapper = mount(AppButton, {
+      props: { label: 'Undo', shortcut: 'Ctrl+Z' },
+      attachTo: document.body,
+    })
+    // Tooltip is teleported to <body> and only rendered while hovered
+    await wrapper.get('span.inline-flex').trigger('mouseenter')
+    await new Promise((resolve) => setTimeout(resolve, 120))
+    await nextTick()
+    const tooltip = document.body.querySelector('[role="tooltip"]')
+    expect(tooltip?.textContent).toContain('Undo')
+    expect(tooltip?.querySelector('kbd')?.textContent).toBe('Ctrl+Z')
+    wrapper.unmount()
   })
 
   it('emits click and respects disabled', async () => {

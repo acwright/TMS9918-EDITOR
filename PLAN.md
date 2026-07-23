@@ -8,13 +8,47 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Phase 4 (Phases 1–3 complete)
+- **Active phase:** Phase 10 (Phases 1–9 complete)
 - **Last updated:** 2026-07-23
 - Phase 2 domain layer lives in `src/domain/` (types, modes, palette, factory, charOps,
   screenOps, ca65, commands, serialization) with specs in `src/domain/__tests__/`.
 - Phase 3: `src/persistence/repository.ts` (localStorage), `src/stores/projects.ts` (Pinia,
   autosave/dirty flag), project manager UI in `ProjectManagerView` + `NewProjectDialog`.
   Note: `vitest.setup.ts` polyfills localStorage (Node's experimental webstorage shadows jsdom's).
+- Phase 4: `src/stores/editor.ts` (selection + global CommandHistory; all project mutations
+  go through it), `src/domain/colors.ts` (per-mode row-color resolution), editor components
+  in `src/components/editor/`. Undo/redo buttons live in the app bar for now (move to the
+  screen toolbar in Phase 7). Transform tooltips get shortcuts in Phase 8.
+- Phase 5: `CharsetPicker.vue` (canvas 8×32, click-select ring, GMII set paginator),
+  `ProjectSettingsDialog.vue` (mirrored↔independent conversion). Conversion is an undoable
+  command (`editor.setG2CharsetMode`). Editor layout is viewport-height; the left column
+  (aside) is the single scroll container. Charset picker renders as two side-by-side 8×16
+  halves (0–127 / 128–255) — a *half-row* = one Graphics I color group.
+- Phase 6: `ColorPicker.vue` (2×8, F/B badges, checkerboard transparent via `bg-checker`
+  utility, F/B tap-target toggle for touch). Color state in editor store: `selectedRow`,
+  `activeColors`, `setColor` (undoable, captures target slot). GMII row chips live in
+  `CharacterPanel`; auto-follow happens in `paintPixel`. G1 group highlight in `CharsetGrid`.
+- Phase 7: `ScreenPanel.vue` (toolbar + rename/delete dialogs, zoom 1×–8× + grid overlay as
+  local view state) and `ScreenCanvas.vue` (paint/erase strokes, GMII thirds via
+  `charsetForRow`). Screen state/commands in editor store: `selectedScreen`, `paintCell`,
+  `screenTransform`, `addScreen`/`removeScreen`/`renameScreen` (all undoable; last screen
+  can't be deleted). Undo/redo moved from the app bar into the screen toolbar.
+- Phase 8: full shortcut map in `EditorView.onKeydown` (documented in README);
+  `src/utils/platform.ts` gives ⌘/⌥/⇧ labels on Mac. Screen zoom/grid state moved into the
+  editor store (`screenScale`, `showGrid`, `zoomScreen`/`fitScreenScale`/`toggleGrid`) so
+  shortcuts drive them; ScreenPanel keeps only the auto-fit measurement (now a ResizeObserver,
+  which also re-fits when the Screen tab becomes visible). `AppTooltip` is a Teleport-to-body
+  tooltip driven by a reactive `visible` flag (escapes overflow clipping; forwards `$attrs`
+  to its anchor since it has two root nodes). Footer on the manager view.
+- Phase 9: responsive tabs below `lg` (Character / Screen) in `EditorView`; side-by-side at
+  `lg`+. PixelEditor & ScreenCanvas use container-level pointer math + `setPointerCapture` so
+  touch drags paint across cells (per-cell `pointerenter` doesn't fire on touch). AppButton
+  hit targets grow to 40px on `pointer-coarse`. F/B toggle (Phase 6) covers touch's missing
+  right-click for colors; on the screen editor, erase-on-touch is done by painting char 0.
+- Phase 10: `src/samples/` — three bundled sample projects (one per mode) authored as ASCII
+  art, loadable from the manager's "Load a Sample" row (`store.createFrom`). Full README
+  rewrite. Remaining before release (need the user): capture `docs/screenshot.png`, pick a
+  license, push to GitHub + verify Pages, tag `v0.1.0`.
 - Note: Pages deployment is configured but unverified — the repo has no GitHub remote yet.
   Verify the workflow after the first push (also enable Pages via repo Settings → Pages → Source: GitHub Actions).
 
@@ -201,71 +235,82 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** full project lifecycle works across page reloads; bad uploads rejected gracefully.
 
 ### Phase 4 — Character Pixel Editor
-- [ ] 8×8 grid editor bound to selected character: left-click/drag draws, right-click/drag erases
+- [x] 8×8 grid editor bound to selected character: left-click/drag draws, right-click/drag erases
       (per PROMPT: click toggles pixel on/off in fg color; drags draw); context-menu suppressed
-- [ ] Pixels render in current fg color; unset pixels in current bg color (per active mode's color model)
-- [ ] Text Mode: columns 6–7 visually dimmed/hatched (§4.2)
-- [ ] Transform buttons (ordered): fill · clear · invert | shift L/R/U/D | rotate L/R | flip H/V — all via command layer
-- [ ] ca65 byte box, updates live, copy-to-clipboard button with success feedback
-- [ ] 3×3 wallpaper preview of the current character (live)
+- [x] Pixels render in current fg color; unset pixels in current bg color (per active mode's color model)
+- [x] Text Mode: columns 6–7 visually dimmed/hatched (§4.2)
+- [x] Transform buttons (ordered): fill · clear · invert | shift L/R/U/D | rotate L/R | flip H/V — all via command layer
+- [x] ca65 byte box, updates live, copy-to-clipboard button with success feedback
+- [x] 3×3 wallpaper preview of the current character (live)
 - **Exit criteria:** edit a character end-to-end with undo/redo working for every operation.
 
 ### Phase 5 — Character Set Picker
-- [ ] 8-wide × 32-tall canvas grid rendering all 256 chars with their mode-correct colors
-- [ ] Click selects character (highlight ring) → pixel editor + screen-draw brush
-- [ ] Live re-render as the current character is edited
-- [ ] GMII independent mode: 3-set paginator (Set 1/2/3 = screen top/middle/bottom); hidden otherwise
-- [ ] GMII setting conversion UI (project settings dialog): mirrored↔independent per Decision 1,
-      with destructive-change warning
+- [x] 8-wide × 32-tall canvas grid rendering all 256 chars with their mode-correct colors
+- [x] Click selects character (highlight ring) → pixel editor + screen-draw brush
+- [x] Live re-render as the current character is edited
+- [x] GMII independent mode: 3-set paginator (Set 1/2/3 = screen top/middle/bottom); hidden otherwise
+- [x] GMII setting conversion UI (project settings dialog): mirrored↔independent per Decision 1,
+      with destructive-change warning (undoable command; warning shown before converting)
 - **Exit criteria:** selection flows to pixel editor; GMII paging + conversion work.
 
 ### Phase 6 — Color System
-- [ ] 2×8 color picker: 16 swatches, transparent as checkerboard, **F**/**B** badges overlaid
+- [x] 2×8 color picker: 16 swatches, transparent as checkerboard, **F**/**B** badges overlaid
       on current fg/bg swatches (badge contrast handled for light/dark swatches)
-- [ ] Left-click sets foreground; right-click sets background (plus small F/B mode toggle for
+- [x] Left-click sets foreground; right-click sets background (plus small F/B mode toggle for
       touch/tablet where right-click is unavailable)
-- [ ] Text Mode: one global fg/bg pair; whole screen + previews re-render
-- [ ] Graphics I: picker targets the color group (= charset picker row) of the selected character;
+- [x] Text Mode: one global fg/bg pair; whole screen + previews re-render
+- [x] Graphics I: picker targets the color group (= charset picker half-row) of the selected character;
       group highlight in the charset picker
-- [ ] Graphics II: row chips + auto-follow per Decision 2
-- [ ] All color changes are undoable commands
+- [x] Graphics II: row chips + auto-follow per Decision 2
+- [x] All color changes are undoable commands
 - **Exit criteria:** each mode's color behavior matches §1 table; renders update everywhere live.
 
 ### Phase 7 — Screen Editor
-- [ ] Canvas grid: 32×24 (8px cells) or 40×24 (6px cells, Text Mode), scaled 1×–8×
-- [ ] Left-click/drag paints current character; right-click/drag clears (to char 0 or a
-      designated "blank"); context-menu suppressed
-- [ ] Grid overlay toggle
-- [ ] GMII: each screen third renders from its charset (independent) or the shared set (mirrored)
-- [ ] Centered toolbar (ordered): share(stub) | scale | grid | rotate L/R · flip H/V · shift L/R/U/D |
+- [x] Canvas grid: 32×24 (8px cells) or 40×24 (6px cells, Text Mode), scaled 1×–8×
+- [x] Left-click/drag paints current character; right-click/drag clears (to char 0);
+      context-menu suppressed
+- [x] Grid overlay toggle
+- [x] GMII: each screen third renders from its charset (independent) or the shared set (mirrored)
+- [x] Centered toolbar (ordered): share(stub) | scale | grid | rotate L/R · flip H/V · shift L/R/U/D |
       clear all · fill all | undo · redo | screen paginator ‹ 1/n › with add/delete
-- [ ] Multiple screens per project: add, delete (confirm), paginate; screens named/renameable
-- [ ] Import/Export button present but stubbed ("coming soon" tooltip) per scope
+- [x] Multiple screens per project: add, delete (confirm), paginate; screens named/renameable
+- [x] Import/Export button present but stubbed ("coming soon" tooltip) per scope
 - **Exit criteria:** draw a full screen with multiple screens, all toolbar ops undoable.
 
 ### Phase 8 — Keyboard Shortcuts & Polish
-- [ ] Shortcut map, e.g.: Ctrl/Cmd+Z undo, Shift+Ctrl/Cmd+Z redo, Ctrl/Cmd+S save,
+- [x] Shortcut map: Ctrl/Cmd+Z undo, Shift+Ctrl/Cmd+Z redo, Ctrl/Cmd+S save, Esc back,
       `[`/`]` prev/next character, `+`/`-` scale, `G` grid, `F` fill, `C` clear, `I` invert,
-      arrows+modifier shift, etc. — final map documented in README
-- [ ] Every tooltip shows its shortcut; shortcuts disabled while typing in inputs/dialogs
-- [ ] Save-state indicator (saved / saving / unsaved) in app bar
-- [ ] Empty states, confirm dialogs, error toasts pass a consistency pass
+      `R`/`Shift+R` rotate, `H`/`V` flip, Alt+arrows shift, `,`/`.` screens, `N` new project
+      — documented in README
+- [x] Every tooltip shows its shortcut (platform-aware ⌘/⌥/⇧ on Mac); shortcuts disabled
+      while typing in inputs/dialogs
+- [x] Render tooltips through a popover layer so they never clip at panel edges
+- [x] Footer: copyright line + GitHub icon linking to
+      https://github.com/acwright/TMS9918-EDITOR (project manager view)
+- [x] Save-state indicator (saved / saving / unsaved) in app bar
+- [x] Empty states, confirm dialogs, error toasts pass a consistency pass
+      (destructive dialogs have explicit Cancel; form dialogs close via X/Esc)
+- [x] Addendum: prev/next character buttons restored in the Character panel header
 - **Exit criteria:** app fully drivable via documented shortcuts; tooltips accurate.
 
 ### Phase 9 — Tablet/Mobile Friendliness
-- [ ] Responsive layout: below desktop width, panels stack (pixel editor + colors / charset / screen)
-      or become tabs; screen editor pans via touch
-- [ ] Touch drawing (pointer events) for pixel and screen editors; F/B toggle covers missing right-click
-- [ ] Hit targets ≥ 40px for toolbar buttons on touch
-- [ ] Verified usable on iPad-class viewport (1024×768 and 820×1180)
+- [x] Responsive layout: below `lg` the two columns become Character / Screen tabs; side by
+      side at `lg`+. Screen viewport scrolls/pans when zoomed past the panel.
+- [x] Touch drawing (pointer events) for pixel and screen editors; F/B toggle covers missing
+      right-click (screen-editor erase-on-touch = paint char 0)
+- [x] Hit targets ≥ 40px for toolbar buttons on touch (`pointer-coarse` variant)
+- [~] Verified usable on iPad-class viewport (1024×768 and 820×1180) — needs device/emulator
+      confirmation by the user; layout + touch wired and unit-tested
 - **Exit criteria:** core editing workflows completable on a tablet.
 
 ### Phase 10 — README, Screenshot & Release
-- [ ] README: project description, feature list, screenshot(s), TMS9918 background links,
+- [x] README: project description, feature list, screenshot placeholder, TMS9918 background links,
       dev setup (`npm i && npm run dev`), build/deploy instructions, keyboard shortcut table, license note
-- [ ] Screenshot of the editor with a sample project
-- [ ] Bundled sample project(s) (one per mode) loadable from the project manager
-- [ ] Final Pages deployment verified; tag `v0.1.0`
+- [~] Screenshot of the editor with a sample project — needs a browser capture by the user;
+      README references `docs/screenshot.png` and samples exist to make one
+- [x] Bundled sample project(s) (one per mode) loadable from the project manager (`src/samples/`)
+- [~] Final Pages deployment verified; tag `v1.0.0` — needs the user to push to GitHub, verify
+      the Pages run, choose a license, and tag
 - **Exit criteria:** a newcomer can understand, run, and use the app from the README alone.
 
 ---

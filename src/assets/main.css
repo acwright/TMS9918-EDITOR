@@ -41,6 +41,12 @@
   --color-vdp-white: #ffffff;
 }
 
+/* Checkerboard for the transparent palette swatch (PLAN.md §4.1) */
+@utility bg-checker {
+  background-image: repeating-conic-gradient(#d4d4d4 0% 25%, #f7f7f7 0% 50%);
+  background-size: 10px 10px;
+}
+
 @layer base {
   html {
     @apply bg-ink-950 text-ink-100 font-sans antialiased;
