@@ -7,6 +7,10 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'jsdom',
+      // jsdom only provides localStorage for a non-opaque origin (not about:blank)
+      environmentOptions: { jsdom: { url: 'http://localhost/' } },
+      // Works around Node's experimental webstorage shadowing jsdom's localStorage
+      setupFiles: ['./vitest.setup.ts'],
       exclude: [...configDefaults.exclude, 'e2e/**'],
       root: fileURLToPath(new URL('./', import.meta.url)),
     },

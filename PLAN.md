@@ -8,10 +8,13 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Phase 3 (Phases 1–2 complete)
+- **Active phase:** Phase 4 (Phases 1–3 complete)
 - **Last updated:** 2026-07-23
 - Phase 2 domain layer lives in `src/domain/` (types, modes, palette, factory, charOps,
   screenOps, ca65, commands, serialization) with specs in `src/domain/__tests__/`.
+- Phase 3: `src/persistence/repository.ts` (localStorage), `src/stores/projects.ts` (Pinia,
+  autosave/dirty flag), project manager UI in `ProjectManagerView` + `NewProjectDialog`.
+  Note: `vitest.setup.ts` polyfills localStorage (Node's experimental webstorage shadows jsdom's).
 - Note: Pages deployment is configured but unverified — the repo has no GitHub remote yet.
   Verify the workflow after the first push (also enable Pages via repo Settings → Pages → Source: GitHub Actions).
 
@@ -185,14 +188,16 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
   within the same bounds (cells falling outside are dropped, vacated cells cleared). Flag in UI copy.
 
 ### Phase 3 — Persistence & Project Manager View
-- [ ] localStorage repository (index + per-project keys, quota-error handling)
-- [ ] Pinia store: project list, load/save/autosave (debounced on mutation), dirty flag
-- [ ] Project manager view (landing page `/`): card/list of projects with name, mode badge, modified date
-- [ ] New-project dialog: name, mode picker (Text / Graphics I / Graphics II), GMII charset-mode
+- [x] localStorage repository (index + per-project keys, quota-error handling; compact JSON
+      in storage, pretty JSON for downloads; corrupt entries tolerated)
+- [x] Pinia store: project list, load/save/autosave (debounced on mutation), dirty flag
+      (`saveState`: saved/saving/unsaved; `markDirty()` is the hook for later editor phases)
+- [x] Project manager view (landing page `/`): card/list of projects with name, mode badge, modified date
+- [x] New-project dialog: name, mode picker (Text / Graphics I / Graphics II), GMII charset-mode
       choice (mirrored vs. independent) shown only for GMII
-- [ ] Rename, duplicate, delete (with confirm) actions
-- [ ] Download project as JSON; upload JSON (validated, rejected with a clear error if malformed)
-- [ ] Opening a project routes to `/edit/:projectId`
+- [x] Rename, duplicate, delete (with confirm) actions
+- [x] Download project as JSON; upload JSON (validated, rejected with a clear error if malformed)
+- [x] Opening a project routes to `/edit/:projectId` (editor header shows name, mode, save state)
 - **Exit criteria:** full project lifecycle works across page reloads; bad uploads rejected gracefully.
 
 ### Phase 4 — Character Pixel Editor
