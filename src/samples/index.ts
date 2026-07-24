@@ -10,6 +10,7 @@
 import type { Graphics1Colors, Graphics2Colors, Project } from '@/domain/types'
 import { createProject } from '@/domain/factory'
 import { MODES } from '@/domain/modes'
+import { PALETTE } from '@/domain/palette'
 import { FONT } from './font'
 
 export interface Sample {
@@ -70,117 +71,410 @@ function textSample(): Project {
   return project
 }
 
-// --- Graphics Mode I: a banded landscape (color per 8-char group) ---
+// --- Graphics Mode I: a tile-based arcade platformer ---
+//
+// Graphics I ties one fg/bg pair to each *group of 8 consecutive character
+// codes*, so colour is chosen per tile-*type*, not per cell. This scene lays
+// each kind of tile (girder, ladder, hero, barrel, prize, HUD text) into its
+// own code group and gives that group a single colour — the flat, blocky
+// colour model the mode is known for.
 
-function landscapeSample(): Project {
-  const project = createProject({ name: 'Sample — Landscape', type: 'graphics1' })
+/** Code groups (8 codes each). Every code in a group shares one fg/bg pair. */
+const G1 = {
+  GIRDER: 8, // group 1
+  LADDER: 16, // group 2
+  HERO: 24, // group 3
+  BARREL: 32, // group 4
+  PRIZE: 40, // group 5
+  TEXT: 128, // groups 16–31: the HUD font (one white-on-black colour)
+} as const
+
+function platformSample(): Project {
+  const project = createProject({ name: 'Sample — Platform Climb', type: 'graphics1' })
   const charset = project.charsets[0]
   const colors = project.colors as Graphics1Colors
   if (!charset) return project
 
-  const SOLID = glyph(['########', '########', '########', '########', '########', '########', '########', '########']) // prettier-ignore
+  // Tiles — one representative glyph per code group.
+  charset[G1.GIRDER] = glyph([
+    '########',
+    '##.##.##',
+    '########',
+    '.#....#.',
+    '.#....#.',
+    '........',
+    '........',
+    '........',
+  ]) // riveted girder sitting in the top of its cell
+  charset[G1.LADDER] = glyph([
+    '.#....#.',
+    '.######.',
+    '.#....#.',
+    '.######.',
+    '.#....#.',
+    '.######.',
+    '.#....#.',
+    '.######.',
+  ]) // twin rails + rungs, full height
+  charset[G1.HERO] = glyph([
+    '..####..',
+    '..####..',
+    '.#.##.#.',
+    '.######.',
+    '..####..',
+    '.#.##.#.',
+    '.#....#.',
+    '.##..##.',
+  ]) // a little climber
+  charset[G1.BARREL] = glyph([
+    '.######.',
+    '#.#..#.#',
+    '##.##.##',
+    '#.#..#.#',
+    '##.##.##',
+    '#.#..#.#',
+    '##.##.##',
+    '.######.',
+  ]) // rolling barrel
+  charset[G1.PRIZE] = glyph([
+    '.##.##..',
+    '#######.',
+    '#######.',
+    '#######.',
+    '.#####..',
+    '..###...',
+    '...#....',
+    '........',
+  ]) // heart to rescue at the top
 
-  charset[1] = glyph([
-    '..####..',
-    '.######.',
-    '########',
-    '########',
-    '########',
-    '########',
-    '.######.',
-    '..####..',
-  ]) // sun
-  charset[8] = SOLID // sky
-  charset[16] = glyph([
-    '........',
-    '........',
-    '....##..',
-    '..#####.',
-    '.#######',
-    '########',
-    '########',
-    '########',
-  ]) // hill
-  charset[24] = SOLID // grass
-  charset[32] = glyph([
-    '...##...',
-    '..####..',
-    '.######.',
-    '########',
-    '........',
-    '........',
-    '........',
-    '........',
-  ]) // cloud
+  // One colour per tile type — the whole point of Graphics I.
+  colors.groups[0] = { fg: 15, bg: 1 } // empty sky: black
+  colors.groups[G1.GIRDER / 8] = { fg: 8, bg: 1 } // girders: medium red
+  colors.groups[G1.LADDER / 8] = { fg: 7, bg: 1 } // ladders: cyan
+  colors.groups[G1.HERO / 8] = { fg: 9, bg: 1 } // hero: light red
+  colors.groups[G1.BARREL / 8] = { fg: 10, bg: 1 } // barrels: dark yellow
+  colors.groups[G1.PRIZE / 8] = { fg: 13, bg: 1 } // prize: magenta
+  for (let g = 16; g < 32; g++) colors.groups[g] = { fg: 15, bg: 1 } // HUD text: white
 
-  // One fg/bg pair per group of 8 characters (the charset-picker half-row)
-  colors.groups[0] = { fg: 10, bg: 5 } // sun: dark yellow on sky blue
-  colors.groups[1] = { fg: 5, bg: 1 } // sky: light blue
-  colors.groups[2] = { fg: 12, bg: 5 } // hills: dark green on sky
-  colors.groups[3] = { fg: 2, bg: 1 } // grass: medium green
-  colors.groups[4] = { fg: 15, bg: 5 } // clouds: white on sky
+  // HUD font: copy just the glyphs we print into the text code range, keeping a
+  // char→code map so shared letters reuse a code (Graphics I has 256 codes).
+  const textCode = new Map<string, number>()
+  let nextText = G1.TEXT
+  const hud = (x: number, y: number, str: string): void => {
+    for (const ch of str.toUpperCase()) {
+      let code = textCode.get(ch)
+      if (code === undefined && nextText < 256) {
+        code = nextText++
+        textCode.set(ch, code)
+        charset[code] = glyph(FONT[ch] ?? FONT['?']!)
+      }
+      if (code !== undefined) place(project, x, y, code)
+      x++
+    }
+  }
 
   const { columns } = MODES.graphics1
-  for (let y = 0; y < 11; y++) for (let x = 0; x < columns; x++) place(project, x, y, 8) // sky
-  for (let x = 0; x < columns; x++) place(project, x, 11, 16) // hill ridge
-  for (let y = 12; y < 24; y++) for (let x = 0; x < columns; x++) place(project, x, y, 24) // grass
-  place(project, 26, 1, 1) // sun
-  place(project, 4, 2, 32) // clouds
-  place(project, 12, 1, 32)
-  place(project, 20, 3, 32)
+
+  // Girder platforms (the top 3px of each cell) with a stepped gap or two.
+  const floors = [22, 18, 14, 10, 6]
+  for (const y of floors) for (let x = 0; x < columns; x++) place(project, x, y, G1.GIRDER)
+  place(project, 15, 18, 0) // a gap to jump/climb around
+  place(project, 16, 14, 0)
+
+  // Ladders threaded between the platforms.
+  const ladder = (x: number, top: number, bottom: number): void => {
+    for (let y = top; y < bottom; y++) place(project, x, y, G1.LADDER)
+  }
+  ladder(4, 19, 22) // ground → floor 1
+  ladder(27, 15, 18) // floor 1 → 2
+  ladder(7, 11, 14) // floor 2 → 3
+  ladder(23, 7, 10) // floor 3 → 4
+
+  // Actors.
+  place(project, 2, 21, G1.HERO) // hero on the ground floor
+  place(project, 20, 17, G1.BARREL) // barrels on the ramps
+  place(project, 10, 13, G1.BARREL)
+  place(project, 25, 9, G1.BARREL)
+  place(project, 15, 5, G1.PRIZE) // prize on the top floor
+
+  // HUD across the top two rows.
+  hud(1, 0, '1UP   007650')
+  hud(1, 2, 'HIGH  031200')
+  hud(24, 0, 'STAGE-1')
+  hud(24, 2, 'LIVES-3')
+
   return project
 }
 
-// --- Graphics Mode II: multicolor icons (color per pixel row) ---
+// --- Graphics Mode II: a full-screen bitmap space battle ---
+//
+// Graphics II gives every 8-pixel row of every cell its own fg/bg pair. With an
+// *independent* charset (256 unique glyphs per screen third) the whole 256×192
+// display becomes a near-bitmap: any two colours per horizontal 8-pixel strip.
+// We paint a scene onto a plain pixel canvas, then fit it to the hardware — the
+// exact opposite of Graphics I's flat, tile-coloured look.
 
-interface RowSpec {
-  pat: number
-  fg: number
-  bg: number
+const CANVAS_W = 256
+const CANVAS_H = 192
+
+function rgbOf(index: number): [number, number, number] {
+  const hex = PALETTE[index]?.hex
+  if (!hex) return [10, 10, 10]
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ]
 }
 
-function setG2Char(project: Project, code: number, spec: RowSpec[]): void {
-  const charset = project.charsets[0]
-  const colors = project.colors as Graphics2Colors
-  if (charset) charset[code] = spec.map((s) => s.pat)
-  const rows = colors.rows[0]
-  if (rows) rows[code] = spec.map((s) => ({ fg: s.fg, bg: s.bg }))
+function colorDist(a: number, b: number): number {
+  const [ar, ag, ab] = rgbOf(a)
+  const [br, bg, bb] = rgbOf(b)
+  return (ar - br) ** 2 + (ag - bg) ** 2 + (ab - bb) ** 2
 }
 
-function iconsSample(): Project {
-  const project = createProject({ name: 'Sample — Icons', type: 'graphics2' })
-
-  // Smiley: yellow face (silhouette rows use transparent bg for round edges;
-  // feature rows are full-width, so bg can be the face color)
-  setG2Char(project, 1, [
-    { pat: 0b00111100, fg: 10, bg: 0 },
-    { pat: 0b01111110, fg: 10, bg: 0 },
-    { pat: 0b00100100, fg: 1, bg: 10 }, // eyes
-    { pat: 0b00000000, fg: 1, bg: 10 },
-    { pat: 0b01000010, fg: 1, bg: 10 }, // mouth corners
-    { pat: 0b00111100, fg: 1, bg: 10 }, // mouth base
-    { pat: 0b01111110, fg: 10, bg: 0 },
-    { pat: 0b00111100, fg: 10, bg: 0 },
-  ])
-
-  // Heart: light-red top fading to medium-red — a per-row gradient
-  setG2Char(project, 2, [
-    { pat: 0b01100110, fg: 9, bg: 0 },
-    { pat: 0b11111111, fg: 9, bg: 0 },
-    { pat: 0b11111111, fg: 8, bg: 0 },
-    { pat: 0b11111111, fg: 8, bg: 0 },
-    { pat: 0b01111110, fg: 8, bg: 0 },
-    { pat: 0b00111100, fg: 8, bg: 0 },
-    { pat: 0b00011000, fg: 8, bg: 0 },
-    { pat: 0b00000000, fg: 8, bg: 0 },
-  ])
-
-  const { columns, rows } = MODES.graphics2
-  for (let y = 1; y < rows - 1; y += 2) {
-    for (let x = 1; x < columns - 1; x += 2) {
-      place(project, x, y, ((x + y) / 2) % 2 === 0 ? 1 : 2)
+/**
+ * Fit one 8-pixel row to the hardware's two-colours-per-row limit: pick the
+ * fg/bg pair that best represents the strip (least colour error), then set a
+ * bit wherever the pixel is nearer fg than bg.
+ */
+function fitRow(px: number[]): { fg: number; bg: number; byte: number } {
+  const distinct = [...new Set(px)]
+  let fg = distinct[0]!
+  let bg = distinct[1] ?? distinct[0]!
+  if (distinct.length > 2) {
+    let best = Infinity
+    for (let i = 0; i < distinct.length; i++) {
+      for (let j = i + 1; j < distinct.length; j++) {
+        let err = 0
+        for (const p of px) err += Math.min(colorDist(p, distinct[i]!), colorDist(p, distinct[j]!))
+        if (err < best) {
+          best = err
+          fg = distinct[i]!
+          bg = distinct[j]!
+        }
+      }
     }
   }
+  let byte = 0
+  if (fg !== bg) {
+    for (let k = 0; k < 8; k++) {
+      if (colorDist(px[k]!, fg) < colorDist(px[k]!, bg)) byte |= 0x80 >> k
+    }
+  }
+  return { fg, bg, byte }
+}
+
+/** Slice a 256×192 palette-index canvas into an independent Graphics II project. */
+function fitCanvasToG2(project: Project, canvas: number[]): void {
+  const charsets = project.charsets // [set0, set1, set2]
+  const colors = project.colors as Graphics2Colors
+  const cells = project.screens[0]!.cells
+  const cols = MODES.graphics2.columns
+
+  for (let third = 0; third < 3; third++) {
+    for (let ly = 0; ly < 8; ly++) {
+      for (let lx = 0; lx < cols; lx++) {
+        const code = ly * cols + lx // unique 0–255 within the third
+        const cy = third * 8 + ly
+        const pattern: number[] = []
+        const rowColors: { fg: number; bg: number }[] = []
+        for (let r = 0; r < 8; r++) {
+          const py = cy * 8 + r
+          const strip: number[] = []
+          for (let k = 0; k < 8; k++) strip.push(canvas[py * CANVAS_W + (lx * 8 + k)]!)
+          const { fg, bg, byte } = fitRow(strip)
+          pattern.push(byte)
+          rowColors.push({ fg, bg })
+        }
+        charsets[third]![code] = pattern
+        colors.rows[third]![code] = rowColors
+        cells[cy * cols + lx] = code
+      }
+    }
+  }
+}
+
+// -- Canvas drawing primitives (palette indices; background = black) --
+
+function makeCanvas(fill: number): number[] {
+  return Array.from({ length: CANVAS_W * CANVAS_H }, () => fill)
+}
+
+function px(canvas: number[], x: number, y: number, c: number): void {
+  if (x >= 0 && x < CANVAS_W && y >= 0 && y < CANVAS_H) canvas[y * CANVAS_W + x] = c
+}
+
+function hBands(canvas: number[], bands: { to: number; c: number }[]): void {
+  let y = 0
+  for (const { to, c } of bands) {
+    for (; y < to && y < CANVAS_H; y++) for (let x = 0; x < CANVAS_W; x++) px(canvas, x, y, c)
+  }
+}
+
+/** A filled disc, coloured by a constant or a per-scanline band function. */
+function disc(
+  canvas: number[],
+  cx: number,
+  cy: number,
+  r: number,
+  color: number | ((dy: number) => number),
+): void {
+  for (let dy = -r; dy <= r; dy++) {
+    const w = Math.floor(Math.sqrt(r * r - dy * dy))
+    const c = typeof color === 'function' ? color(dy) : color
+    for (let dx = -w; dx <= w; dx++) px(canvas, cx + dx, cy + dy, c)
+  }
+}
+
+/** A tilted elliptical ring band; `half` limits it to the top or bottom arc. */
+function ring(
+  canvas: number[],
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  c: number,
+  half: 'top' | 'bottom' | 'both' = 'both',
+): void {
+  for (let x = cx - rx; x <= cx + rx; x++) {
+    for (let y = cy - ry - 1; y <= cy + ry + 1; y++) {
+      if (half === 'top' && y > cy) continue
+      if (half === 'bottom' && y < cy) continue
+      const v = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+      if (v > 0.82 && v < 1.0) px(canvas, x, y, c)
+    }
+  }
+}
+
+function fillRect(canvas: number[], x0: number, y0: number, w: number, h: number, c: number): void {
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) px(canvas, x, y, c)
+}
+
+/** Blit ASCII art at (x,y); `.`/space = transparent. `map` turns chars→colour. */
+function blit(
+  canvas: number[],
+  art: string[],
+  x0: number,
+  y0: number,
+  map: Record<string, number>,
+): void {
+  for (let r = 0; r < art.length; r++) {
+    const row = art[r]!
+    for (let c = 0; c < row.length; c++) {
+      const ch = row[c]!
+      if (ch === '.' || ch === ' ') continue
+      const color = map[ch]
+      if (color !== undefined) px(canvas, x0 + c, y0 + r, color)
+    }
+  }
+}
+
+/** Draw text with the bundled 5×7 font (6px advance). */
+function drawText(canvas: number[], x0: number, y: number, str: string, c: number): void {
+  let x = x0
+  for (const ch of str.toUpperCase()) {
+    const art = FONT[ch] ?? FONT['?']!
+    for (let r = 0; r < art.length; r++) {
+      const row = art[r]!
+      for (let k = 0; k < row.length; k++) if (row[k] === '#') px(canvas, x + k, y + r, c)
+    }
+    x += 6
+  }
+}
+
+// Deterministic pseudo-random starfield (no Math.random, so samples are stable).
+function stars(canvas: number[], seed: number, count: number): void {
+  let s = seed
+  const next = (): number => {
+    s = (s * 1103515245 + 12345) & 0x7fffffff
+    return s / 0x7fffffff
+  }
+  for (let i = 0; i < count; i++) {
+    const x = Math.floor(next() * CANVAS_W)
+    const y = Math.floor(next() * CANVAS_H)
+    if (canvas[y * CANVAS_W + x] !== 1) continue // only scatter over black space
+    px(canvas, x, y, next() < 0.35 ? 14 : 15) // gray or white
+  }
+}
+
+const SHIP = [
+  '.................LL...........',
+  '...............LLGGL..........',
+  '.....vv.......LGGGGGGL........',
+  '...vvww......LGGGGGGGGL.......',
+  '.vvwwwww...LGGGccGGGGGGGL.....',
+  'ooffwwwwwwGGGGccGGGGGGGGGGL...',
+  'ooffGGGGGGGGGGGGGGGGGGGGGGGGLL',
+  'ooffGGGGGGGGGGGccGGGGGGGGGGL..',
+  '.vvwwwww...LGGGccGGGGGGGL.....',
+  '...vvww......LGGGGGGGGL.......',
+  '.....vv.......LGGGGGGL........',
+  '...............LLGGL..........',
+  '.................LL...........',
+]
+const SHIP_MAP: Record<string, number> = { L: 15, G: 14, c: 7, w: 5, v: 4, o: 8, f: 11 }
+
+const ENEMY = [
+  '...WWW...',
+  '..WmmmW..',
+  '.GGGGGGG.',
+  'GGcGcGcGG',
+  '.G.G.G.G.',
+]
+const ENEMY_MAP: Record<string, number> = { W: 15, m: 13, G: 12, c: 11 }
+
+function spaceSample(): Project {
+  const project = createProject({
+    name: 'Sample — Star Voyager',
+    type: 'graphics2',
+    g2CharsetMode: 'independent',
+  })
+  const canvas = makeCanvas(1) // black space
+
+  // Nebula: a soft glow confined to the upper third, behind the planet, so the
+  // rest of the screen stays clean starry black for the ship to fly through.
+  hBands(canvas, [
+    { to: 14, c: 1 }, // black
+    { to: 30, c: 4 }, // dark blue
+    { to: 48, c: 13 }, // magenta nebula core
+    { to: 66, c: 4 }, // dark blue
+    { to: CANVAS_H, c: 1 }, // black space below
+  ])
+  stars(canvas, 1337, 420)
+
+  // Ringed gas giant, upper-left, banded by scanline like Jupiter.
+  const giantBand = (dy: number): number => {
+    if (dy < -22) return 11 // light yellow
+    if (dy < -10) return 10 // dark yellow
+    if (dy < -2) return 8 // medium red
+    if (dy < 8) return 11
+    if (dy < 18) return 6 // dark red
+    return 10
+  }
+  ring(canvas, 56, 46, 58, 20, 14, 'top') // ring arc behind the planet
+  disc(canvas, 56, 46, 38, giantBand)
+  ring(canvas, 56, 46, 58, 20, 7, 'bottom') // ring arc in front (cyan)
+
+  // Player fighter, centre-left, firing to the right.
+  const shipX = 96
+  const shipY = 100
+  blit(canvas, SHIP, shipX, shipY, SHIP_MAP)
+  // Laser bolt streaking from the nose toward the enemy.
+  const boltY = shipY + 6
+  fillRect(canvas, shipX + 29, boltY - 1, 96, 1, 11) // yellow edge
+  fillRect(canvas, shipX + 29, boltY, 96, 1, 15) // white core
+  fillRect(canvas, shipX + 29, boltY + 1, 96, 1, 11) // yellow edge
+
+  // Enemy raider diving in, with the bolt's impact bursting at its base.
+  blit(canvas, ENEMY, 220, boltY - 14, ENEMY_MAP)
+  disc(canvas, 230, boltY, 7, (dy) => (Math.abs(dy) < 3 ? 11 : Math.abs(dy) < 5 ? 8 : 6))
+
+  // HUD.
+  drawText(canvas, 6, 5, 'SCORE 013370', 15)
+  drawText(canvas, 190, 5, 'STAGE 3', 7)
+
+  fitCanvasToG2(project, canvas)
   return project
 }
 
@@ -250,16 +544,16 @@ export const SAMPLES: Sample[] = [
     build: textSample,
   },
   {
-    id: 'landscape',
-    name: 'Landscape',
-    description: 'Graphics I · banded scene showing per-group colors',
-    build: landscapeSample,
+    id: 'platform-climb',
+    name: 'Platform Climb',
+    description: 'Graphics I · an arcade platformer — one flat colour per tile type',
+    build: platformSample,
   },
   {
-    id: 'icons',
-    name: 'Icons',
-    description: 'Graphics II · multicolor smiley + heart (per-row colors)',
-    build: iconsSample,
+    id: 'star-voyager',
+    name: 'Star Voyager',
+    description: 'Graphics II · a full-screen bitmap space battle (per-row colours, 3 charsets)',
+    build: spaceSample,
   },
   {
     id: 'vista',

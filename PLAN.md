@@ -8,9 +8,14 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Round 3 complete — released as `v1.2.0` (**Multicolor Mode**, Phases
-  15–18; 210 tests green). Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
+- **Active phase:** Round 4 complete — released as `v1.2.1` (**Sample project refresh**:
+  richer Graphics I / II game screens, Phase 19). Round 3 was `v1.2.0` (Multicolor Mode);
+  Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
 - **Last updated:** 2026-07-24
+- **Round 4 (target `v1.2.1`)** is a small patch round replacing the lacklustre Graphics I
+  and II samples with proper mock game screens that showcase each mode's colour model — a
+  tiled arcade platformer (**Platform Climb**) and a full-bitmap space battle
+  (**Star Voyager**). See **§11** for scope and Phase 19.
 - **Round 3 (target `v1.2.0`)** kicks off here: a fourth VDP mode — **Multicolor** — with a
   new project type (a 64×48 chunky-pixel colour grid), a stripped-down editor (no character
   or character-set panels; a single-select colour rail + the existing screen canvas/toolbar),
@@ -697,3 +702,44 @@ stacked char cells; 32 pattern columns × 6 row-groups = 192 patterns cover the 
       `.markdownlintignore` so a plain-text file isn't Markdown-linted.
 - **Exit criteria:** ✅ README reflects Round 3; the multicolor "Vista" sample ships; `v1.2.0`
   tagged, pushed, and released.
+
+---
+
+## 11. Round 4 — Sample Refresh (target `v1.2.1`)
+
+Fourth round on top of `v1.2.0`: a small patch focused entirely on the bundled sample
+projects. The Text and Multicolor samples were already good; the Graphics I ("Landscape")
+and Graphics II ("Icons") ones were lacklustre and didn't show off what the modes can do.
+Round 4 replaces them with mock game screens drawn from arcade-era inspiration, each chosen
+to make the mode's colour model obvious.
+
+### 11.1 Scope
+
+1. **Graphics I → "Platform Climb"** — a tiled arcade platformer (riveted girders, ladders,
+   a hero, rolling barrels, a heart prize, and a HUD). Each *tile type* lives in its own
+   8-code group with a single fg/bg pair, so the scene reads as flat, per-tile colour — the
+   Graphics I colour model at a glance.
+2. **Graphics II → "Star Voyager"** — a full-screen 256×192 bitmap space battle (ringed gas
+   giant, nebula, starfield, a fighter firing a laser into an enemy). Authored by painting a
+   pixel canvas and *fitting* it to the hardware: an **independent** 3-charset layout (256
+   unique glyphs per screen third) plus a per-8-pixel-row two-colour quantiser. Showcases the
+   near-bitmap, two-colours-per-row model — the opposite of Graphics I's flat tiles.
+3. **README + release** — refresh the sample list, bump to `1.2.1`, tag `v1.2.1`, push,
+   release. Release title is just the version (`v1.2.1`).
+
+Text ("Text Greeting") and Multicolor ("Vista") samples are unchanged.
+
+### 11.2 Phase 19
+
+#### Phase 19 — Sample Refresh, README & Release
+- [x] Rewrote the two weak samples in `src/samples/index.ts`: `platformSample`
+      (`platform-climb`) and `spaceSample` (`star-voyager`), replacing `landscapeSample`
+      and `iconsSample`. Added canvas-drawing helpers (disc/ring/blit/gradient/text) and a
+      two-colour-per-row quantiser (`fitRow` / `fitCanvasToG2`) that fits an arbitrary
+      256×192 palette-index canvas onto independent Graphics II. Samples spec still validates
+      all four (schema-valid, non-empty, in-bounds codes).
+- [x] README sample list updated (Platform Climb + Star Voyager).
+- [x] Bumped `package.json` to `1.2.1`; full suite green; lint + build clean.
+- [x] Committed, tagged `v1.2.1`, pushed to `origin/main`, GitHub release published.
+- **Exit criteria:** ✅ The Graphics I / II samples are proper game screens that demonstrate
+  each colour model; README reflects them; `v1.2.1` tagged, pushed, and released.

@@ -48,8 +48,11 @@ The project manager has a **Load a Sample** row with one project per mode — a 
 see the colour models in action or to start a screenshot:
 
 - **Text Greeting** — a complete printable-ASCII 5×7 font with a greeting and font sampler.
-- **Landscape** — a Graphics I scene (sky, sun, clouds, hills, grass) showing per-group colours.
-- **Icons** — a Graphics II grid of a multicolour smiley and a gradient heart (per-row colours).
+- **Platform Climb** — a Graphics I arcade platformer (girders, ladders, barrels, a hero and a
+  prize) where every tile type carries one flat colour — the mode's per-group colour model.
+- **Star Voyager** — a Graphics II space battle drawn as a full 256×192 bitmap (a ringed planet,
+  nebula, starfield, a fighter and its laser) — the near-bitmap, two-colours-per-row model, using
+  an independent 3-charset layout.
 - **Vista** — a Multicolor 64×48 block scene (hills, sun, clouds) with a full-palette strip.
 
 ## Export
