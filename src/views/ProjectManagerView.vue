@@ -15,6 +15,8 @@ import { useProjectsStore } from '@/stores/projects'
 const store = useProjectsStore()
 const router = useRouter()
 
+const version = __APP_VERSION__
+
 onMounted(() => store.refresh())
 
 // N opens the new-project dialog (disabled while typing or in a dialog)
@@ -216,7 +218,7 @@ function formatDate(iso: string): string {
     <footer
       class="mt-8 flex items-center justify-between border-t border-ink-800 pt-4 text-xs text-ink-500"
     >
-      <p>© 2026 A.C. Wright Design</p>
+      <p>© 2026 A.C. Wright Design · v{{ version }}</p>
       <a
         href="https://github.com/acwright/TMS9918-EDITOR"
         target="_blank"

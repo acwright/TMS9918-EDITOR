@@ -46,9 +46,11 @@ This document is the source of truth across agent sessions. **Update the checkbo
   hit targets grow to 40px on `pointer-coarse`. F/B toggle (Phase 6) covers touch's missing
   right-click for colors; on the screen editor, erase-on-touch is done by painting char 0.
 - Phase 10: `src/samples/` — three bundled sample projects (one per mode) authored as ASCII
-  art, loadable from the manager's "Load a Sample" row (`store.createFrom`). Full README
-  rewrite. Remaining before release (need the user): capture `docs/screenshot.png`, pick a
-  license, push to GitHub + verify Pages, tag `v0.1.0`.
+  art, loadable from the manager's "Load a Sample" row (`store.createFrom`); the Text sample
+  uses a full printable-ASCII font in `src/samples/font.ts`. Full README rewrite. Version is
+  `1.0.0` (package.json), inlined via Vite `define` (`__APP_VERSION__`) and shown in the
+  manager footer; tagged `v1.0.0`. Remaining (need the user): capture `docs/screenshot.png`,
+  pick a license, push to GitHub + verify Pages.
 - Note: Pages deployment is configured but unverified — the repo has no GitHub remote yet.
   Verify the workflow after the first push (also enable Pages via repo Settings → Pages → Source: GitHub Actions).
 
@@ -309,8 +311,9 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - [~] Screenshot of the editor with a sample project — needs a browser capture by the user;
       README references `docs/screenshot.png` and samples exist to make one
 - [x] Bundled sample project(s) (one per mode) loadable from the project manager (`src/samples/`)
-- [~] Final Pages deployment verified; tag `v1.0.0` — needs the user to push to GitHub, verify
-      the Pages run, choose a license, and tag
+- [x] Version bumped to `1.0.0` (shown in the manager footer) and tagged `v1.0.0`
+- [~] Final Pages deployment verified — needs the user to push to GitHub, verify the Pages run,
+      and choose a license
 - **Exit criteria:** a newcomer can understand, run, and use the app from the README alone.
 
 ---
