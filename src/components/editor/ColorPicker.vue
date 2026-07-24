@@ -97,7 +97,7 @@ function badgeClass(index: number): string {
       <AppTooltip label="Tap sets Foreground" placement="top">
         <button
           type="button"
-          class="font-display h-[19px] w-7 rounded-sm border text-xs tracking-wider"
+          class="font-display h-4.75 w-7 rounded-sm border text-xs tracking-wider"
           :class="
             target === 'fg'
               ? 'border-ink-300 bg-ink-100 text-ink-950'
@@ -113,7 +113,7 @@ function badgeClass(index: number): string {
       <AppTooltip label="Tap sets Background" placement="bottom">
         <button
           type="button"
-          class="font-display h-[19px] w-7 rounded-sm border text-xs tracking-wider"
+          class="font-display h-4.75 w-7 rounded-sm border text-xs tracking-wider"
           :class="
             target === 'bg'
               ? 'border-ink-300 bg-ink-100 text-ink-950'
