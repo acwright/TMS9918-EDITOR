@@ -170,6 +170,14 @@ export const useEditorStore = defineStore('editor', () => {
     executePatternChange(label, selectedCharset.value, selectedChar.value, fn(pattern))
   }
 
+  /** Overwrite the selected character's pattern (e.g. pasted bytes) as an undoable command. */
+  function setCharPattern(bytes: CharPattern): void {
+    const pattern = currentPattern.value
+    if (!pattern || bytes.length !== pattern.length) return
+    if (bytes.every((b, i) => b === pattern[i])) return // no-op: identical bytes
+    executePatternChange('Set Bytes', selectedCharset.value, selectedChar.value, bytes.slice())
+  }
+
   // --- Pixel strokes ---
 
   function beginStroke(label: string): void {
@@ -398,6 +406,7 @@ export const useEditorStore = defineStore('editor', () => {
     setG2CharsetMode,
     setColor,
     transform,
+    setCharPattern,
     beginStroke,
     endStroke,
     paintPixel,

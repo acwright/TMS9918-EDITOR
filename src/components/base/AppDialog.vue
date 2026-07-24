@@ -3,8 +3,12 @@ import { useTemplateRef, watch, onMounted } from 'vue'
 import { X } from 'lucide-vue-next'
 import AppButton from './AppButton.vue'
 
-const props = defineProps<{ title: string }>()
+const props = withDefaults(defineProps<{ title: string; size?: 'md' | 'lg' | 'xl' }>(), {
+  size: 'md',
+})
 const open = defineModel<boolean>({ required: true })
+
+const SIZES = { md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-2xl' } as const
 
 const dialog = useTemplateRef('dialog')
 
@@ -26,7 +30,8 @@ function onClose() {
 <template>
   <dialog
     ref="dialog"
-    class="fixed inset-0 m-auto w-full max-w-md rounded-md border border-ink-700 bg-ink-900 p-0 text-ink-100 shadow-2xl backdrop:bg-black/60"
+    class="fixed inset-0 m-auto w-full rounded-md border border-ink-700 bg-ink-900 p-0 text-ink-100 shadow-2xl backdrop:bg-black/60"
+    :class="SIZES[props.size]"
     @close="onClose"
   >
     <header class="flex items-center justify-between border-b border-ink-800 py-2 pr-2 pl-4">

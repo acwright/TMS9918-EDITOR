@@ -8,8 +8,11 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Phase 10 (Phases 1–9 complete)
+- **Active phase:** Round 2 complete — released as `v1.1.0` (Round 1 / Phases 1–10 was `v1.0.0`)
 - **Last updated:** 2026-07-23
+- **Round 2 (target `v1.1.0`)** kicks off here: app icon/favicon, a mode-switching &
+  paste-to-set character byte box, and the first real **Export** system (screens + character
+  sets). See **§9** for scope, decisions, the export-format reference, and Phases 11–14.
 - Phase 2 domain layer lives in `src/domain/` (types, modes, palette, factory, charOps,
   screenOps, ca65, commands, serialization) with specs in `src/domain/__tests__/`.
 - Phase 3: `src/persistence/repository.ts` (localStorage), `src/stores/projects.ts` (Pinia,
@@ -68,8 +71,9 @@ download/upload as JSON), each targeting one of three VDP modes:
 | Graphics Mode I | 32 × 24 | 8 × 8 px | 1 × 256 chars | fg/bg pair per character-set row (8 chars/group, 32 groups — matches HW color table) |
 | Graphics Mode II | 32 × 24 | 8 × 8 px | 1 × 256 mirrored **or** 3 × 256 independent (screen thirds) | fg/bg pair per pixel row of each character (8 pairs/char — matches HW) |
 
-Out of scope for now: **Import/Export implementation** (UI button exists, disabled/stub)
-and **Multicolor Mode**.
+Out of scope for now: **Import implementation** (the toolbar Import/Export share button is
+replaced by an **Export**-only button in Round 2; Import returns later as its own button)
+and **Multicolor Mode**. Export is implemented in Round 2 — see **§9**.
 
 ## 2. Confirmed Design Decisions
 
@@ -178,14 +182,16 @@ neutral background.
 │ App bar: project name · save state · back to projects        │
 ├───────────────────────────┬──────────────────────────────────┤
 │ Pixel editor (8×8)  [row  │  Screen toolbar (centered):      │
-│ chips in GMII]  Color     │  share · scale · grid · rotate · │
+│ chips in GMII]  Color     │  export · scale · grid · rotate ·│
 │ picker (2×8, F/B badges)  │  flip · shift · clear · fill ·   │
 │ Transform button rows     │  undo · redo · screen paginator  │
-│ ca65 byte box (copyable)  ├──────────────────────────────────┤
-│ 3×3 wallpaper preview     │                                  │
-├───────────────────────────┤  Screen editor canvas            │
-│ Charset picker 8×32       │  (32×24 or 40×24, scrollable,    │
-│ (scrollable; GMII set     │  1×–8× scale)                    │
+│ Byte box ($/# toggle,     ├──────────────────────────────────┤
+│ copy + paste-to-set)      │                                  │
+│ 3×3 wallpaper preview     │  Screen editor canvas            │
+├───────────────────────────┤  (32×24 or 40×24, scrollable,    │
+│ Charset picker 8×32       │  1×–8× scale)                    │
+│ [charset export button]   │                                  │
+│ (scrollable; GMII set     │                                  │
 │ paginator when            │                                  │
 │ independent)              │                                  │
 └───────────────────────────┴──────────────────────────────────┘
@@ -320,8 +326,151 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 
 ## 8. Deferred / Future Work
 
-- Import/Export formats (assembly `.byte` dumps of full charset/screens, binary, PNG render) — button exists, implementation deferred
+- **Export formats** — implemented in Round 2 (§9). ~~deferred~~
+- **Import** of assembler/BASIC/binary/PNG and **Magellan project files** — its own toolbar
+  button, a later round (Round 2 ships Export only). Whole-project JSON import already exists
+  in the project manager.
 - Multicolor Mode
 - Copy/paste characters between slots; charset slot reordering
 - Screen cell-region selection, copy/paste, stamp tools
 - Optional: shareable URLs, IndexedDB migration if localStorage quota becomes a problem
+
+---
+
+## 9. Round 2 — Improvements (target `v1.1.0`)
+
+Second round of improvements on top of the released `v1.0.0`. Four phases (11–14). Same
+conventions as Round 1: all project mutations go through the command layer (undoable),
+pure logic lives in `src/domain/` with Vitest specs, chrome stays in the base components.
+
+### 9.1 Scope
+
+1. **App icon / favicon** — a black-and-white, on-theme app icon (Phase 11).
+2. **Character byte box** — drop the ca65-specific `.byte`; show the 8 pattern bytes as a
+   plain comma-separated **hex** string or **decimal** (BASIC-friendly) string, toggled by a
+   button; make the box **paste-to-set** (paste either format to overwrite the character) (Phase 12).
+3. **Export system** — the main missing feature. Replace the stubbed screen-toolbar share
+   button with an **Export**-only button, and add a **separate Export button for character
+   sets**. Support ca65, at least one other assembler dialect, BASIC `DATA`, raw binary, and
+   PNG; investigate Magellan interop (Phase 13).
+4. **README + release** — document the above, bump to `1.1.0`, tag `v1.1.0`, push (Phase 14).
+
+### 9.2 Confirmed Design Decisions (Round 2)
+
+Settled — the user delegated format/icon judgment ("something of your choosing", "formats you
+deem appropriate"). Do not re-litigate without user input:
+
+4. **Icon concept: a monochrome pixel-grid glyph.** On-theme with the 8×8 editor rather than
+   a wordmark — a white pixel-art motif on a black rounded tile (a stylized glyph / bitmap
+   grid, evoking a character cell). Authored as **SVG** (crisp at every size, trivially
+   monochrome) and used as the primary `favicon.svg`; raster fallbacks (`.ico`, a 180×180
+   `apple-touch-icon.png`) are generated from it. Black/white only, no palette color.
+5. **Byte box is format-agnostic and bidirectional.** Two display radixes — hex
+   (`$3C, $42, …`) and decimal (`60, 66, …`, for BASIC) — toggled by one button whose label
+   reads **`$`** in hex mode and **`#`** in decimal mode. No assembler directive prefix in
+   the box (ca65's `.byte` moves to the Export dialog). The box is editable: on paste/blur it
+   parses a tolerant token stream (accepts `$`/`0x`/bare hex or decimal, comma/space/newline
+   separators, and strips a leading `.byte`/`db`/`DATA`+line-number); exactly 8 valid bytes
+   overwrite the current character via one undoable command, anything else is a no-op with a
+   brief inline invalid hint.
+6. **Two export scopes, one dialog.** A shared `ExportDialog` opened in **screen** scope
+   (from the screen toolbar) or **charset** scope (from the charset picker header). Format
+   picker + live preview (for text formats) + Copy and Download actions. The per-character
+   byte box (Phase 12) already covers single-character export/import, so the charset button
+   targets the *whole* set.
+7. **Export is read-only serialization — no schema changes.** Formatters are pure functions
+   over the existing `Project`; nothing in `src/domain/types.ts` or stored JSON changes.
+
+### 9.3 Export-format reference
+
+The exportable tables of a TMS9918 project and how each format renders them:
+
+| Table | Source | Text | Graphics I | Graphics II |
+|---|---|---|---|---|
+| **Pattern** | `charsets[set][char]` | 256×8 bytes | 256×8 bytes | 256×8 bytes per set (1 or 3 sets) |
+| **Color** | `colors` | one register nibble `fg<<4\|bg` | 32 bytes (one `fg<<4\|bg` per 8-char group) | 8 bytes/char = 2048 bytes per set (`fg<<4\|bg` per pixel row) |
+| **Name** | `screens[n].cells` | 960 bytes (40×24) | 768 bytes (32×24) | 768 bytes (32×24) |
+
+Formats (committed unless marked stretch):
+
+- **ca65 assembler** — `.byte $XX, …`, labelled segments (`char_patterns:`, `char_colors:`,
+  `screen_<name>:`). Primary target.
+- **Z80 assembler (`db`)** — `db $XX, …` for WLA-DX / sjasmplus / tniasm (MSX, ColecoVision,
+  SG-1000 are Z80 — the second most relevant toolchain for this chip). Same table structure,
+  different directive/label syntax. One shared assembly builder parameterized by dialect
+  (directive, hex prefix, label/comment style).
+- **BASIC `DATA`** — decimal bytes as numbered `DATA` lines (configurable start line + step,
+  e.g. `1000 DATA 60,66,…`). Targets TI/MSX BASIC.
+- **Raw binary** — `.bin` download of the chosen table(s) as a `Uint8Array` (Blob). The
+  interchange format most other tools (incl. Magellan) can ingest.
+- **PNG** — render a screen (name scope) or a charset sheet (charset scope) to a canvas and
+  download. Reuses a shared renderer extracted from `ScreenCanvas.vue`.
+- **Magellan interop via binary (no native `.mag`).** Magellan (Daniel Bienvenu's
+  ColecoVision/TMS9918 editor) uses a proprietary `.mag` project format with no published spec,
+  so a native Magellan export is **out of scope**. Interop is achieved through the **raw binary**
+  pattern/color/name tables, which Magellan imports. The README documents this path; no
+  Magellan-specific code ships.
+
+### 9.4 Phases
+
+#### Phase 11 — App Icon & Favicon ✅
+- [x] Monochrome app icon per Decision 4 — a retro pixel-art "invader" glyph (rounded top,
+      two eyes, legs) on a black tile; reads as retro character graphics and stays crisp at
+      favicon sizes. Single source bitmap in `scripts/generate-icons.mjs`.
+- [x] All assets generated from that one bitmap (zero deps — PNG/ICO encoded via Node `zlib`):
+      `public/favicon.svg` (rounded), `favicon.ico` (32×32 PNG-in-ICO), `apple-touch-icon.png`
+      (180), `icon-192.png`, `icon-512.png`, plus `public/site.webmanifest` (relative icon
+      paths so they resolve under the Pages base; theme/background `#0a0a0a`).
+- [x] `index.html`: SVG icon + `.ico` fallback + `apple-touch-icon` + manifest + `theme-color`.
+- [x] Verified `VITE_BASE=/TMS9918-EDITOR/ npm run build` copies every asset into `dist/` and
+      Vite rebases the `index.html` hrefs to `/TMS9918-EDITOR/…`; type-check green.
+- **Exit criteria:** ✅ a distinct black-and-white icon ships in dev and in a Pages-based
+  production build. (Rerun `node scripts/generate-icons.mjs` to regenerate from the bitmap.)
+
+#### Phase 12 — Character Byte Box: multi-format + paste-to-set ✅
+- [x] New domain `src/domain/bytes.ts`: `formatBytes(bytes, radix)` and `parseBytes(text)`
+      (tolerant tokenizer per Decision 5 — infers hex vs decimal, strips `$`/`0x` and a leading
+      `.byte`/`db`/`DATA`+line-number, returns 8 in-range bytes or `null`). 13 Vitest specs
+      covering both radixes, round-trips, messy paste, and rejections.
+- [x] Refactored `Ca65Box.vue` → `CharBytesBox.vue`: `$`/`#` radix toggle, no directive prefix,
+      Copy retained, editable field committing on **paste / blur / Enter** via the new undoable
+      `editor.setCharPattern(bytes)` (identical-bytes = no-op, so a focus/blur adds no history);
+      invalid input flashes a red border + inline hint and reverts. `draft` resyncs from the
+      pattern when not being edited (drawing/undo/char-switch keep it current).
+- [x] `src/domain/ca65.ts` left intact for Phase 13's export dialog; the byte box no longer
+      imports it.
+- [x] `CharacterPanel.vue` rewired to `CharBytesBox`; radix is local view state.
+- **Exit criteria:** ✅ toggles hex/decimal, copies the shown form, and pasting either form
+  (with/without prefixes or line numbers) sets the character with working undo. Full suite
+  173 green, type-check + build + lint clean.
+
+#### Phase 13 — Export system (screens + character sets) ✅
+- [x] Pure formatters under `src/domain/export/`: `tables.ts` (segment model + `patternTableBytes`
+      / `colorTableBytes` (nibble-packed) / `nameTableBytes` + `charsetSegments`/`screenSegments`),
+      `assembly.ts` (one builder for ca65 `.byte` & Z80 `db`), `basic.ts` (numbered `REM`/`DATA`,
+      start-line + step), `binary.ts` (`Uint8Array` concatenation), barrel `index.ts`. **13 specs**
+      cover nibble packing per mode, set-suffix labels, table toggles, and each renderer.
+- [x] Shared render + download utils: extracted the draw loop into `src/utils/screenRender.ts`
+      (`renderScreen`, `renderCharsetSheet`, `screenToCanvas`/`charsetSheetToCanvas` upscaled with
+      smoothing off); `ScreenCanvas.vue` now calls `renderScreen`. Added `src/utils/download.ts`
+      (`downloadText` / `downloadBytes` / `downloadCanvasPng` / `downloadBlob`).
+- [x] `ExportDialog.vue` (Decision 6): `screen`/`charset` scope; format picker
+      (ca65 / Z80 / BASIC / Binary / PNG); scope options (set + Patterns/Colours toggles, or
+      Current/All screens; BASIC line start/step); live textarea preview for text, byte-count /
+      PNG-dimension summary otherwise; Copy (text) + Download. `AppDialog` gained an optional
+      `size` (`md`/`lg`/`xl`) — export uses `xl`.
+- [x] Screen toolbar: disabled `Share2` replaced with an **Export Screen** (download icon)
+      button → `ExportDialog` scope `screen`. Import stays out (Deferred §8).
+- [x] Charset picker header: **Export Character Set** button → `ExportDialog` scope `charset`.
+- [ ] Magellan binary-interop note → folded into the Phase 14 README pass (no code).
+- **Exit criteria:** ✅ both entry points copy/download ca65, Z80, BASIC, binary, and PNG that
+  round-trips the on-screen data; full suite 186 green, type-check + build + lint clean.
+
+#### Phase 14 — README, Versioning & Release ✅
+- [x] README: new **Export** section (formats table + entry points + Magellan binary-interop
+      note), byte-box hex/decimal + paste bullet, intro/feature-list refresh.
+- [x] PLAN Current Status + checkboxes updated.
+- [x] Bumped `package.json` to `1.1.0` (surfaces via `__APP_VERSION__` in the manager footer),
+      committed, tagged `v1.1.0`, pushed to `origin/main`.
+- [x] GitHub release published for `v1.1.0` with a summary of the round.
+- **Exit criteria:** ✅ README reflects Round 2; `v1.1.0` tagged, pushed, and released.

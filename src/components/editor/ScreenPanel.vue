@@ -7,6 +7,7 @@ import {
   ArrowUp,
   ChevronLeft,
   ChevronRight,
+  Download,
   Eraser,
   FlipHorizontal2,
   FlipVertical2,
@@ -17,7 +18,6 @@ import {
   Redo2,
   RotateCcw,
   RotateCw,
-  Share2,
   Trash2,
   Undo2,
   ZoomIn,
@@ -26,6 +26,7 @@ import {
 import AppButton from '@/components/base/AppButton.vue'
 import AppDialog from '@/components/base/AppDialog.vue'
 import AppTextInput from '@/components/base/AppTextInput.vue'
+import ExportDialog from './ExportDialog.vue'
 import ScreenCanvas from './ScreenCanvas.vue'
 import * as screenOps from '@/domain/screenOps'
 import { MODES } from '@/domain/modes'
@@ -88,6 +89,7 @@ function confirmRename() {
 }
 
 const showDelete = ref(false)
+const showExport = ref(false)
 
 function confirmDelete() {
   editor.removeScreen(editor.selectedScreen)
@@ -101,8 +103,8 @@ const pageLabel = computed(() => `${editor.selectedScreen + 1}/${editor.screenCo
   <section class="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Screen editor">
     <!-- Toolbar — ordered per PLAN.md §6/Phase 7 -->
     <div class="flex flex-wrap items-center justify-center gap-1">
-      <AppButton label="Import / Export — Coming Soon" disabled>
-        <Share2 class="size-4" />
+      <AppButton label="Export Screen" @click="showExport = true">
+        <Download class="size-4" />
       </AppButton>
 
       <div class="mx-1.5 h-6 w-px bg-ink-800" />
@@ -267,6 +269,8 @@ const pageLabel = computed(() => `${editor.selectedScreen + 1}/${editor.screenCo
         <ScreenCanvas :scale="editor.screenScale" :show-grid="editor.showGrid" />
       </div>
     </div>
+
+    <ExportDialog v-model="showExport" scope="screen" />
 
     <AppDialog v-model="showRename" title="Rename Screen">
       <form @submit.prevent="confirmRename">

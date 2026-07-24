@@ -6,9 +6,9 @@ Video Display Processor — the graphics chip behind the TI-99/4A, ColecoVision,
 Memotech, and many other early-1980s machines.
 
 Design 8×8 character patterns, colour them with the TMS9918's 15-colour palette, lay
-them out across one or more screens, and copy the results straight out as `ca65`
-assembler bytes. Everything runs client-side; projects are saved in your browser and can
-be downloaded or shared as JSON.
+them out across one or more screens, and export the result as 6502 (`ca65`) or Z80
+assembly, BASIC `DATA`, raw binary, or PNG. Everything runs client-side; projects are
+saved in your browser and can be downloaded or shared as JSON.
 
 ![Editor screenshot](docs/screenshot.png)
 
@@ -29,7 +29,10 @@ be downloaded or shared as JSON.
   targeting, Graphics I group highlighting, and Graphics II per-row colour chips.
 - **Screen editor** — paint characters onto a scalable (1×–8×) grid, with per-screen
   transforms, a toggleable grid overlay, and multiple named screens per project.
-- **Live `ca65` output** for the selected character, one click to copy.
+- **Character byte box** — view the selected glyph as comma-separated **hex** or **decimal**,
+  copy it, or paste either form (or a `.byte` / `db` / `DATA` line) back in to set the character.
+- **Export** to 6502 (`ca65`) or Z80 assembly, BASIC `DATA`, raw binary, or PNG — with separate
+  buttons for the character set and for screens (see [Export](#export)).
 - **Project-wide undo/redo**, debounced autosave to localStorage, and JSON import/export.
 - **Keyboard-driven** (see below) and **touch-friendly** — the layout collapses to
   Character / Screen tabs on tablet-sized viewports.
@@ -42,6 +45,34 @@ see the colour models in action or to start a screenshot:
 - **Text Greeting** — a complete printable-ASCII 5×7 font with a greeting and font sampler.
 - **Landscape** — a Graphics I scene (sky, sun, clouds, hills, grass) showing per-group colours.
 - **Icons** — a Graphics II grid of a multicolour smiley and a gradient heart (per-row colours).
+
+## Export
+
+Two entry points, each opening the same export dialog:
+
+- **Export Character Set** (download icon in the Character Set header) — the pattern table and/or
+  colour table for the current set. Graphics II independent projects can pick one set or all three.
+- **Export Screen** (download icon in the screen toolbar) — the name table for the current screen
+  or all screens.
+
+Formats:
+
+| Format | Notes |
+|---|---|
+| **6502 (`ca65`)** | `.byte $XX, …` with labelled segments — the cc65 toolchain. |
+| **Z80** | `db $XX, …` for WLA-DX / sjasmplus / tniasm (MSX, ColecoVision, SG-1000). |
+| **BASIC** | Decimal `DATA` lines with a configurable start line and step (TI/MSX BASIC). |
+| **Binary** | Raw `.bin` of the selected tables. |
+| **PNG** | The screen, or a 16×16 sheet of the character set, at a selectable 1×–8× scale. |
+
+Colour bytes pack as `(fg << 4) | bg`, matching the TMS9918 colour table. Text mode emits one
+colour byte, Graphics I emits 32 (one per 8-character group), Graphics II emits 8 per character.
+
+**Magellan interop** — Magellan and other TMS9918 tools import raw binary pattern/colour/name
+tables, so use the **Binary** export to move data between them; there's no native `.mag` project
+format.
+
+Single characters can also be copied or pasted through the character byte box (hex or decimal).
 
 ## Keyboard Shortcuts
 

@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, useTemplateRef, watchEffect } from 'vue'
-import * as charOps from '@/domain/charOps'
-import * as screenOps from '@/domain/screenOps'
-import { colorHex, resolveRowColors } from '@/domain/colors'
-import { MODES, charsetForRow } from '@/domain/modes'
+import { MODES } from '@/domain/modes'
+import { renderScreen } from '@/utils/screenRender'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
 
@@ -15,8 +13,6 @@ defineProps<{
 
 const projects = useProjectsStore()
 const editor = useEditorStore()
-
-const NEUTRAL = '#0a0a0a' // ink-950: transparent renders as the app background
 
 const mode = computed(() => MODES[projects.current?.type ?? 'graphics1'])
 const logicalWidth = computed(() => mode.value.columns * mode.value.cellWidth)
@@ -30,31 +26,7 @@ watchEffect(
     const screen = editor.currentScreen
     const ctx = canvas.value?.getContext('2d')
     if (!project || !screen || !ctx) return
-    const { columns, rows, cellWidth } = mode.value
-    ctx.fillStyle = NEUTRAL
-    ctx.fillRect(0, 0, logicalWidth.value, logicalHeight.value)
-    for (let cy = 0; cy < rows; cy++) {
-      // Independent GMII renders each screen third from its own charset
-      const charsetIndex = charsetForRow(project.type, project.settings.g2CharsetMode, cy)
-      for (let cx = 0; cx < columns; cx++) {
-        const code = screenOps.getCell(screen.cells, columns, cx, cy)
-        const pattern = project.charsets[charsetIndex]?.[code]
-        if (!pattern) continue
-        const rowColors = resolveRowColors(project, charsetIndex, code)
-        const originX = cx * cellWidth
-        const originY = cy * 8
-        for (let y = 0; y < 8; y++) {
-          const pair = rowColors[y]
-          for (let x = 0; x < cellWidth; x++) {
-            const index = charOps.getPixel(pattern, x, y) ? (pair?.fg ?? 15) : (pair?.bg ?? 1)
-            const hex = colorHex(index)
-            if (!hex) continue // transparent → neutral base coat
-            ctx.fillStyle = hex
-            ctx.fillRect(originX + x, originY + y, 1, 1)
-          }
-        }
-      }
-    }
+    renderScreen(ctx, project, screen)
   },
   { flush: 'post' },
 )

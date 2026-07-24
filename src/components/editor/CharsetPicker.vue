@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { Settings2 } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { Download, Settings2 } from 'lucide-vue-next'
 import AppButton from '@/components/base/AppButton.vue'
 import CharsetGrid from './CharsetGrid.vue'
+import ExportDialog from './ExportDialog.vue'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
 
 const projects = useProjectsStore()
 const editor = useEditorStore()
+
+const showExport = ref(false)
 
 const emit = defineEmits<{ openSettings: [] }>()
 
@@ -43,8 +46,13 @@ const G2_SETS = [
         <AppButton v-if="isG2" label="Charset Settings" @click="emit('openSettings')">
           <Settings2 class="size-4" />
         </AppButton>
+        <AppButton label="Export Character Set" @click="showExport = true">
+          <Download class="size-4" />
+        </AppButton>
       </div>
     </div>
+
+    <ExportDialog v-model="showExport" scope="charset" />
 
     <!-- Characters 0–127 and 128–255 side by side, centered, scaling to fit -->
     <div class="flex min-h-0 flex-1 items-center justify-center gap-3">

@@ -17,7 +17,7 @@ import {
 } from 'lucide-vue-next'
 import AppButton from '@/components/base/AppButton.vue'
 import AppTooltip from '@/components/base/AppTooltip.vue'
-import Ca65Box from './Ca65Box.vue'
+import CharBytesBox from './CharBytesBox.vue'
 import ColorPicker from './ColorPicker.vue'
 import PixelEditor from './PixelEditor.vue'
 import WallpaperPreview from './WallpaperPreview.vue'
@@ -224,6 +224,6 @@ function chipHalfStyle(index: number): { backgroundColor: string } {
       />
     </div>
 
-    <Ca65Box :pattern="editor.currentPattern" />
+    <CharBytesBox :pattern="editor.currentPattern" />
   </section>
 </template>
