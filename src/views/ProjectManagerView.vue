@@ -154,7 +154,7 @@ function formatDate(iso: string): string {
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-dvh max-w-3xl flex-col px-6 py-10">
+  <div class="mx-auto flex min-h-dvh max-w-5xl flex-col px-6 py-10">
     <header class="mb-8 flex items-end justify-between border-b border-ink-800 pb-4">
       <div>
         <h1 class="text-4xl">TMS9918 Editor</h1>
@@ -193,11 +193,11 @@ function formatDate(iso: string): string {
       <li
         v-for="summary in store.summaries"
         :key="summary.id"
-        class="flex items-center gap-2 rounded-md border border-ink-800 bg-ink-900 p-2 transition-colors hover:border-ink-600"
+        class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-ink-800 bg-ink-900 p-2 transition-colors hover:border-ink-600"
       >
         <button
           type="button"
-          class="flex min-w-0 flex-1 cursor-pointer items-baseline gap-3 rounded-sm px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-300"
+          class="flex min-w-0 flex-1 basis-full cursor-pointer items-baseline gap-3 rounded-sm px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-300 sm:basis-0"
           @click="openProject(summary.id)"
         >
           <span class="font-display truncate text-2xl tracking-wider">{{ summary.name }}</span>
@@ -206,26 +206,29 @@ function formatDate(iso: string): string {
           >
             {{ MODES[summary.type].label }}
           </span>
-          <span class="ml-auto shrink-0 text-xs text-ink-500">
+        </button>
+        <!-- Own row below the name on narrow viewports; inline with it from sm up -->
+        <div class="flex min-w-0 flex-1 basis-full items-center gap-x-4 sm:flex-none sm:basis-auto">
+          <span class="truncate px-2 text-xs tabular-nums text-ink-500 sm:px-0">
             {{ formatDate(summary.modifiedAt) }}
           </span>
-        </button>
-        <div class="flex shrink-0 gap-1">
-          <AppButton label="Rename" @click="startRename(summary)">
-            <Pencil class="size-4" />
-          </AppButton>
-          <AppButton label="Duplicate" @click="store.duplicate(summary.id)">
-            <Copy class="size-4" />
-          </AppButton>
-          <AppButton label="Share Link" @click="startShare(summary)">
-            <Share2 class="size-4" />
-          </AppButton>
-          <AppButton label="Download" @click="download(summary.id)">
-            <Download class="size-4" />
-          </AppButton>
-          <AppButton label="Delete" @click="deleteTarget = summary">
-            <Trash2 class="size-4" />
-          </AppButton>
+          <div class="ml-auto flex shrink-0 gap-1">
+            <AppButton label="Rename" @click="startRename(summary)">
+              <Pencil class="size-4" />
+            </AppButton>
+            <AppButton label="Duplicate" @click="store.duplicate(summary.id)">
+              <Copy class="size-4" />
+            </AppButton>
+            <AppButton label="Share Link" @click="startShare(summary)">
+              <Share2 class="size-4" />
+            </AppButton>
+            <AppButton label="Download" @click="download(summary.id)">
+              <Download class="size-4" />
+            </AppButton>
+            <AppButton label="Delete" @click="deleteTarget = summary">
+              <Trash2 class="size-4" />
+            </AppButton>
+          </div>
         </div>
       </li>
     </ul>
@@ -240,7 +243,7 @@ function formatDate(iso: string): string {
 
     <section class="mt-8">
       <h2 class="font-display mb-2 text-sm tracking-wider text-ink-400">Load a Sample</h2>
-      <div class="grid gap-2 sm:grid-cols-3">
+      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <button
           v-for="sample in SAMPLES"
           :key="sample.id"
@@ -289,8 +292,8 @@ function formatDate(iso: string): string {
       <p class="mt-1 text-xs text-ink-500">
         {{ sharedProject ? MODES[sharedProject.type].label : '' }} ·
         {{ sharedProject?.screens.length }}
-        {{ sharedProject?.screens.length === 1 ? 'screen' : 'screens' }} · adding it saves a copy
-        to this browser.
+        {{ sharedProject?.screens.length === 1 ? 'screen' : 'screens' }} · adding it saves a copy to
+        this browser.
       </p>
       <template #footer>
         <AppButton label="Discard" show-label @click="sharedProject = null" />

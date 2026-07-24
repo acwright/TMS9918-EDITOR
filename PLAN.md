@@ -8,10 +8,10 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Round 5 complete — released as `v1.3.0`: **label case selection** for
-  assembly export, a **screen pointer status bar**, and **share links** (compressed project
-  in the URL hash). See **§12** for scope, decisions, and Phases 20–23. Round 4 was `v1.2.1`
-  (sample refresh); Round 3 was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`;
+- **Active phase:** Round 6 complete — released as `v1.3.1`: a **project manager layout**
+  patch giving the project rows room to breathe now that they carry five actions. See **§13**
+  and Phase 24. Round 5 was `v1.3.0` (label case, pointer status, share links); Round 4 was
+  `v1.2.1` (sample refresh); Round 3 was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`;
   Round 1 / Phases 1–10 was `v1.0.0`.
 - **Last updated:** 2026-07-24
 - **Round 4 (target `v1.2.1`)** is a small patch round replacing the lacklustre Graphics I
@@ -911,3 +911,55 @@ https://acwright.github.io/TMS9918-EDITOR/#p=1H4sIA…
 - [x] Committed, tagged `v1.3.0`, pushed to `origin/main`, GitHub release published with the
       title `v1.3.0`.
 - **Exit criteria:** ✅ README reflects Round 5; `v1.3.0` tagged, pushed, and released.
+
+---
+
+## 13. Round 6 — Project Manager Layout (target `v1.3.1`)
+
+A small patch round on top of `v1.3.0`. Round 5 added a fifth action (**Share Link**) to
+every project row, and at `max-w-3xl` the row ran out of horizontal room: project names
+truncated mid-word while the page sat in a narrow column with empty space either side.
+One phase (24), presentation only — no domain, store, or persistence changes.
+
+### 13.1 Scope
+
+- Widen the manager page so the list uses the space that is already there.
+- Give the row a structure that degrades cleanly instead of squeezing the name.
+- Keep the sample grid balanced at the new width.
+
+### 13.2 Decisions
+
+- **Decision 19 — `max-w-5xl` for the manager.** The editor is already full-bleed; only the
+  manager was constrained. 5xl (1024px) is wide enough for a long name plus the mode badge,
+  timestamp, and five actions, and still reads as a centred document rather than a stretched
+  table on a 4K display.
+- **Decision 20 — the timestamp leaves the name button.** It was the third item inside the
+  clickable open-project button, competing with the name for width via `ml-auto`. As its own
+  sibling it can shrink or wrap without ever forcing the name to truncate, and the button's
+  hit area still spans everything left of it.
+- **Decision 21 — the row wraps rather than compresses.** Below `sm` the name takes a full
+  line and the timestamp + action cluster share the line beneath it (timestamp left, actions
+  right). Above `sm` it is a single line, as before. This keeps the five coarse-pointer
+  targets at full size on a phone instead of shrinking them.
+- **Decision 22 — samples go 4-up.** `sm:grid-cols-2 lg:grid-cols-4` — with four samples,
+  the old `sm:grid-cols-3` left one card orphaned on its own row at the new width.
+
+### 13.3 Phases
+
+#### Phase 24 — Manager Layout & Release ✅
+- [x] `ProjectManagerView.vue`: page container `max-w-3xl` → `max-w-5xl` (Decision 19).
+- [x] Timestamp moved out of the open-project button, given `tabular-nums` so the rows'
+      dates align and `truncate` so it yields before the layout does (Decision 20).
+- [x] Row is `flex-wrap` with the name button `basis-full sm:basis-0`; the timestamp and
+      action cluster share a wrapper that is a full line below `sm` and shrink-to-fit above
+      it (Decision 21).
+- [x] Sample grid `sm:grid-cols-2 lg:grid-cols-4` (Decision 22).
+- [x] README: new **Project manager** feature bullet.
+- [x] Bumped `package.json` to `1.3.1` (surfaces via `__APP_VERSION__` → manager footer);
+      suite **245 green**, type-check + lint + `VITE_BASE=/TMS9918-EDITOR/` build clean.
+- [x] Committed, tagged `v1.3.1`, pushed to `origin/main`, GitHub release published with the
+      title `v1.3.1`.
+- **Exit criteria:** ✅ project names no longer truncate at desktop widths, the five row
+  actions sit at full size on a phone without overflowing, and `v1.3.1` is tagged, pushed,
+  and released. *(Layout verified by reading the emitted classes and a production build;
+  no in-browser pass — no browser driver in this environment.)*

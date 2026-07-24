@@ -43,6 +43,9 @@ link.
   buttons for the character set and for screens, and your choice of label casing
   (see [Export](#export)).
 - **Share links** — hand someone the whole project as a URL (see [Sharing](#sharing)).
+- **Project manager** — every saved project in one list, each row carrying its mode, last-modified
+  time, and rename / duplicate / share / download / delete actions; the row splits over two lines
+  on phone-sized viewports so nothing crowds the name.
 - **Project-wide undo/redo**, debounced autosave to localStorage, and JSON import/export.
 - **Keyboard-driven** (see below) and **touch-friendly** — the layout collapses to
   Character / Screen tabs on tablet-sized viewports.
