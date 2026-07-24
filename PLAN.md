@@ -8,9 +8,8 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Round 3 (**Multicolor Mode**) — Phases 15–18 code-complete at `1.2.0`
-  (210 tests green); only the outward-facing release steps (commit/tag/push/GitHub release)
-  remain, pending user go-ahead. Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
+- **Active phase:** Round 3 complete — released as `v1.2.0` (**Multicolor Mode**, Phases
+  15–18; 210 tests green). Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
 - **Last updated:** 2026-07-24
 - **Round 3 (target `v1.2.0`)** kicks off here: a fourth VDP mode — **Multicolor** — with a
   new project type (a 64×48 chunky-pixel colour grid), a stripped-down editor (no character
@@ -692,7 +691,9 @@ stacked char cells; 32 pattern columns × 6 row-groups = 192 patterns cover the 
 - [x] PLAN Current Status + checkboxes updated.
 - [x] Bumped `package.json` to `1.2.0` (surfaces via `__APP_VERSION__` → manager footer;
       confirmed in the Pages build). Full suite **210 green**; `VITE_BASE` build + lint clean.
-- [ ] Commit, tag `v1.2.0`, push, and publish the GitHub release — pending user go-ahead on
-      the outward-facing git steps.
-- **Exit criteria:** README reflects Round 3; a multicolor sample ships; `v1.2.0` tagged,
-  pushed, and released.
+- [x] Committed (`25cb2c0`), tagged `v1.2.0`, pushed to `origin/main`, and published the
+      GitHub release (<https://github.com/acwright/TMS9918-EDITOR/releases/tag/v1.2.0>).
+      Also cleaned up `LICENSE` (standard MIT text + copyright holder) and added
+      `.markdownlintignore` so a plain-text file isn't Markdown-linted.
+- **Exit criteria:** ✅ README reflects Round 3; the multicolor "Vista" sample ships; `v1.2.0`
+  tagged, pushed, and released.
