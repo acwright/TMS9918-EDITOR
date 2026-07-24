@@ -7,20 +7,22 @@ Memotech, and many other early-1980s machines.
 
 Design 8×8 character patterns, colour them with the TMS9918's 15-colour palette, lay
 them out across one or more screens, and export the result as 6502 (`ca65`) or Z80
-assembly, BASIC `DATA`, raw binary, or PNG. Everything runs client-side; projects are
-saved in your browser and can be downloaded or shared as JSON.
+assembly, BASIC `DATA`, raw binary, or PNG. A dedicated **Multicolor** mode swaps glyph
+editing for a 64×48 grid of chunky 4×4 colour blocks. Everything runs client-side; projects
+are saved in your browser and can be downloaded or shared as JSON.
 
 ![Editor screenshot](docs/screenshot.png)
 
 
 ## Features
 
-- **Three VDP modes**, each with its hardware-accurate colour model:
+- **Four VDP modes**, each with its hardware-accurate colour model:
   | Mode | Screen | Cell | Charsets | Colour |
   |---|---|---|---|---|
   | Text | 40×24 | 6×8 | 1×256 | one global fg/bg pair |
   | Graphics I | 32×24 | 8×8 | 1×256 | fg/bg per 8-character group (32 groups) |
   | Graphics II | 32×24 | 8×8 | 1×256 mirrored **or** 3×256 independent (screen thirds) | fg/bg per pixel row |
+  | Multicolor | 64×48 | 4×4 | — | one solid palette colour per block (no glyphs) |
 - **8×8 pixel editor** with fill / clear / invert, wrapping shifts, rotate, and flip —
   every edit undoable.
 - **Character-set picker** rendering all 256 glyphs in their true colours, with a
@@ -29,6 +31,9 @@ saved in your browser and can be downloaded or shared as JSON.
   targeting, Graphics I group highlighting, and Graphics II per-row colour chips.
 - **Screen editor** — paint characters onto a scalable (1×–8×) grid, with per-screen
   transforms, a toggleable grid overlay, and multiple named screens per project.
+- **Multicolor editor** — a stripped-down mode with no character or character-set panels:
+  pick a colour and paint solid 4×4 blocks straight onto a 64×48 canvas, with a backdrop
+  colour shown behind transparent blocks.
 - **Character byte box** — view the selected glyph as comma-separated **hex** or **decimal**,
   copy it, or paste either form (or a `.byte` / `db` / `DATA` line) back in to set the character.
 - **Export** to 6502 (`ca65`) or Z80 assembly, BASIC `DATA`, raw binary, or PNG — with separate
@@ -45,6 +50,7 @@ see the colour models in action or to start a screenshot:
 - **Text Greeting** — a complete printable-ASCII 5×7 font with a greeting and font sampler.
 - **Landscape** — a Graphics I scene (sky, sun, clouds, hills, grass) showing per-group colours.
 - **Icons** — a Graphics II grid of a multicolour smiley and a gradient heart (per-row colours).
+- **Vista** — a Multicolor 64×48 block scene (hills, sun, clouds) with a full-palette strip.
 
 ## Export
 
@@ -67,6 +73,11 @@ Formats:
 
 Colour bytes pack as `(fg << 4) | bg`, matching the TMS9918 colour table. Text mode emits one
 colour byte, Graphics I emits 32 (one per 8-character group), Graphics II emits 8 per character.
+
+**Multicolor** projects export from the screen toolbar only (there is no character set): each
+screen's synthesised **Pattern Generator** (1536 bytes) plus a shared **Name Table** (768 bytes,
+a fixed framebuffer layout). The block colours live in the pattern nibbles, so there is no
+colour table.
 
 **Magellan interop** — Magellan and other TMS9918 tools import raw binary pattern/colour/name
 tables, so use the **Binary** export to move data between them; there's no native `.mag` project

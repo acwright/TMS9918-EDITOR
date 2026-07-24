@@ -18,6 +18,10 @@ const mode = computed(() => MODES[projects.current?.type ?? 'graphics1'])
 const logicalWidth = computed(() => mode.value.columns * mode.value.cellWidth)
 const logicalHeight = computed(() => mode.value.rows * mode.value.cellHeight)
 
+const isMulticolor = computed(() => projects.current?.type === 'multicolor')
+/** The code a left-click/drag paints: a palette index (multicolor) or char code. */
+const brushCode = computed(() => (isMulticolor.value ? editor.paintColor : editor.selectedChar))
+
 const canvas = useTemplateRef('canvas')
 
 watchEffect(
@@ -52,7 +56,7 @@ function onPointerDown(event: PointerEvent) {
   if (!cell) return
   // Capture so touch drags keep reporting to the canvas even off its bounds
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
-  const code = event.button === 2 ? 0 : editor.selectedChar
+  const code = event.button === 2 ? 0 : brushCode.value
   painting.value = code
   lastCell = cell.y * mode.value.columns + cell.x
   editor.beginStroke(code === 0 ? 'Erase' : 'Draw')
@@ -96,7 +100,11 @@ const gridStyle = computed(() => ({
       :height="logicalHeight"
       class="block cursor-crosshair touch-none [image-rendering:pixelated] select-none"
       :style="{ width: `${logicalWidth * scale}px`, height: `${logicalHeight * scale}px` }"
-      aria-label="Screen editor — left-click paints the selected character, right-click erases"
+      :aria-label="
+        isMulticolor
+          ? 'Screen editor — left-click paints the selected colour, right-click erases'
+          : 'Screen editor — left-click paints the selected character, right-click erases'
+      "
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @contextmenu.prevent

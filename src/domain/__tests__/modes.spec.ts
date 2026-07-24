@@ -6,13 +6,21 @@ describe('modes', () => {
     expect(MODES.text).toMatchObject({ columns: 40, rows: 24, cellWidth: 6, cellCount: 960 })
     expect(MODES.graphics1).toMatchObject({ columns: 32, rows: 24, cellWidth: 8, cellCount: 768 })
     expect(MODES.graphics2).toMatchObject({ columns: 32, rows: 24, cellWidth: 8, cellCount: 768 })
+    expect(MODES.multicolor).toMatchObject({
+      columns: 64,
+      rows: 48,
+      cellWidth: 4,
+      cellHeight: 4,
+      cellCount: 3072,
+    })
   })
 
-  it('charsetCount is 3 only for independent GMII', () => {
+  it('charsetCount is 3 only for independent GMII, 0 for multicolor', () => {
     expect(charsetCount('text')).toBe(1)
     expect(charsetCount('graphics1')).toBe(1)
     expect(charsetCount('graphics2', 'mirrored')).toBe(1)
     expect(charsetCount('graphics2', 'independent')).toBe(3)
+    expect(charsetCount('multicolor')).toBe(0)
   })
 
   describe('charsetForRow', () => {

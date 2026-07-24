@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/base/AppButton.vue'
 import CharacterPanel from '@/components/editor/CharacterPanel.vue'
 import CharsetPicker from '@/components/editor/CharsetPicker.vue'
+import MulticolorPanel from '@/components/editor/MulticolorPanel.vue'
 import ProjectSettingsDialog from '@/components/editor/ProjectSettingsDialog.vue'
 import ScreenPanel from '@/components/editor/ScreenPanel.vue'
 import * as charOps from '@/domain/charOps'
@@ -31,6 +32,10 @@ onBeforeUnmount(() => store.close())
 const SAVE_STATE_LABEL = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved' } as const
 
 const showSettings = ref(false)
+
+// Multicolor has no character/charset editing — a single colour rail + screen,
+// so it skips the Character panel and the responsive tab split entirely (§10 Decision 10).
+const isMulticolor = computed(() => store.current?.type === 'multicolor')
 
 // Below lg the two columns become tabs (side by side at lg+ regardless)
 const activeTab = ref<'character' | 'screen'>('character')
@@ -160,7 +165,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </template>
     </header>
 
-    <main v-if="store.current" class="flex min-h-0 flex-1 flex-col lg:flex-row">
+    <!-- Multicolor: slim colour rail + full-width screen; no tabs, no Character panel -->
+    <main
+      v-if="store.current && isMulticolor"
+      class="flex min-h-0 flex-1 flex-col lg:flex-row"
+    >
+      <aside
+        class="shrink-0 overflow-x-hidden overflow-y-auto border-b border-ink-800 p-4 lg:w-64 lg:border-r lg:border-b-0"
+      >
+        <MulticolorPanel />
+      </aside>
+      <div class="flex min-h-0 min-w-0 flex-1 p-4">
+        <ScreenPanel />
+      </div>
+    </main>
+
+    <main v-else-if="store.current" class="flex min-h-0 flex-1 flex-col lg:flex-row">
       <!-- Mobile/portrait tab switcher (hidden once both columns fit side by side) -->
       <div class="flex shrink-0 gap-1 border-b border-ink-800 p-2 lg:hidden">
         <button

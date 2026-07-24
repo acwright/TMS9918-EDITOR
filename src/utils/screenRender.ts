@@ -14,9 +14,13 @@ const NEUTRAL = '#0a0a0a'
 
 /** Draw one screen into `ctx` at logical size (origin 0,0). */
 export function renderScreen(ctx: CanvasRenderingContext2D, project: Project, screen: Screen): void {
-  const { columns, rows, cellWidth } = MODES[project.type]
+  if (project.type === 'multicolor') {
+    renderMulticolorScreen(ctx, project, screen)
+    return
+  }
+  const { columns, rows, cellWidth, cellHeight } = MODES[project.type]
   ctx.fillStyle = NEUTRAL
-  ctx.fillRect(0, 0, columns * cellWidth, rows * 8)
+  ctx.fillRect(0, 0, columns * cellWidth, rows * cellHeight)
   for (let cy = 0; cy < rows; cy++) {
     // Independent GMII renders each screen third from its own charset
     const charsetIndex = charsetForRow(project.type, project.settings.g2CharsetMode, cy)
@@ -25,7 +29,39 @@ export function renderScreen(ctx: CanvasRenderingContext2D, project: Project, sc
       const pattern = project.charsets[charsetIndex]?.[code]
       if (!pattern) continue
       const rowColors = resolveRowColors(project, charsetIndex, code)
-      drawCell(ctx, pattern, rowColors, cx * cellWidth, cy * 8, cellWidth)
+      drawCell(ctx, pattern, rowColors, cx * cellWidth, cy * cellHeight, cellWidth)
+    }
+  }
+}
+
+/**
+ * Multicolor: each cell is a solid 4×4 block of one palette colour; transparent
+ * blocks (index 0) show the backdrop (`settings.backdrop`, itself possibly
+ * transparent → neutral base). See PLAN.md §10.
+ */
+export function renderMulticolorScreen(
+  ctx: CanvasRenderingContext2D,
+  project: Project,
+  screen: Screen,
+): void {
+  const { columns, rows, cellWidth, cellHeight } = MODES.multicolor
+  const width = columns * cellWidth
+  const height = rows * cellHeight
+  ctx.fillStyle = NEUTRAL
+  ctx.fillRect(0, 0, width, height)
+  const backdropHex = colorHex(project.settings.backdrop ?? 1)
+  if (backdropHex) {
+    ctx.fillStyle = backdropHex
+    ctx.fillRect(0, 0, width, height)
+  }
+  for (let cy = 0; cy < rows; cy++) {
+    for (let cx = 0; cx < columns; cx++) {
+      const index = screenOps.getCell(screen.cells, columns, cx, cy)
+      if (index === 0) continue // transparent → backdrop already drawn
+      const hex = colorHex(index)
+      if (!hex) continue
+      ctx.fillStyle = hex
+      ctx.fillRect(cx * cellWidth, cy * cellHeight, cellWidth, cellHeight)
     }
   }
 }
@@ -101,8 +137,8 @@ export function renderToScaledCanvas(
 
 /** PNG canvas for one screen at `scale`× (logical VDP pixels → CSS pixels). */
 export function screenToCanvas(project: Project, screen: Screen, scale: number): HTMLCanvasElement {
-  const { columns, rows, cellWidth } = MODES[project.type]
-  return renderToScaledCanvas(columns * cellWidth, rows * 8, scale, (ctx) =>
+  const { columns, rows, cellWidth, cellHeight } = MODES[project.type]
+  return renderToScaledCanvas(columns * cellWidth, rows * cellHeight, scale, (ctx) =>
     renderScreen(ctx, project, screen),
   )
 }

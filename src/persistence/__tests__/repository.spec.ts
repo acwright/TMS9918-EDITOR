@@ -28,6 +28,19 @@ describe('repository', () => {
     expect(repository.load(project.id)).toEqual(project)
   })
 
+  it('lists and loads a multicolor project (index summary accepts the type)', () => {
+    const repository = createRepository()
+    const project = createProject({ name: 'MC', type: 'multicolor' })
+    repository.save(project)
+
+    // Regression: the index summary guard once rejected 'multicolor', so the
+    // entry was silently dropped on every read and never appeared in the manager.
+    expect(repository.list()).toEqual([
+      { id: project.id, name: 'MC', type: 'multicolor', modifiedAt: project.modifiedAt },
+    ])
+    expect(repository.load(project.id)).toEqual(project)
+  })
+
   it('updates the index entry on re-save instead of duplicating it', () => {
     const repository = createRepository()
     const project = createProject({ name: 'Alpha', type: 'text' })

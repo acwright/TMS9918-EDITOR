@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { blankCharset, blankPattern, createProject } from '../factory'
 import { CHAR_BYTES, CHAR_COUNT, COLOR_GROUP_COUNT, MODES } from '../modes'
-import { isGraphics1Colors, isGraphics2Colors, isTextColors } from '../types'
+import {
+  isGraphics1Colors,
+  isGraphics2Colors,
+  isMulticolorColors,
+  isTextColors,
+} from '../types'
 
 describe('factory', () => {
   it('blankPattern is 8 zero bytes', () => {
@@ -59,6 +64,17 @@ describe('factory', () => {
     expect(p.charsets[0]).not.toBe(p.charsets[1]) // no shared references
     if (!isGraphics2Colors(p.colors)) throw new Error('expected graphics2 colors')
     expect(p.colors.rows).toHaveLength(3)
+  })
+
+  it('creates a multicolor project with no charsets and an empty colour table', () => {
+    const p = createProject({ name: 'MC', type: 'multicolor' })
+    expect(p.type).toBe('multicolor')
+    expect(p.charsets).toEqual([])
+    expect(isMulticolorColors(p.colors) && p.colors).toEqual({})
+    expect(p.settings).toEqual({ backdrop: 1 })
+    expect(p.screens).toHaveLength(1)
+    expect(p.screens[0]?.cells).toEqual(Array.from({ length: MODES.multicolor.cellCount }, () => 0))
+    expect(MODES.multicolor.cellCount).toBe(3072)
   })
 
   it('ignores g2CharsetMode for non-graphics2 modes', () => {

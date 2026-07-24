@@ -4,6 +4,7 @@ import {
   ASM_DIALECTS,
   charsetSegments,
   colorTableBytes,
+  multicolorScreenSegments,
   nameTableBytes,
   patternTableBytes,
   screenSegments,
@@ -12,6 +13,7 @@ import {
   segmentsToBinary,
   type ByteSegment,
 } from '../export'
+import { MC_COLUMNS } from '../multicolor'
 import { isGraphics1Colors, isGraphics2Colors, isTextColors } from '../types'
 
 describe('table extraction', () => {
@@ -92,6 +94,42 @@ describe('screenSegments', () => {
     expect(seg!.label).toBe('screen_1')
     expect(seg!.perLine).toBe(40)
     expect(seg!.bytes.length).toBe(40 * 24)
+  })
+})
+
+describe('multicolorScreenSegments', () => {
+  it('emits one Pattern Generator (1536 B) + the shared Name Table (768 B) for one screen', () => {
+    const project = createProject({ name: 'MC', type: 'multicolor' })
+    const segs = multicolorScreenSegments(project, [0])
+    expect(segs.map((s) => s.label)).toEqual(['mc_patterns', 'mc_names'])
+    expect(segs[0]!.bytes.length).toBe(1536)
+    expect(segs[1]!.bytes.length).toBe(768)
+    // Fixed framebuffer name table runs 0…191.
+    expect(segs[1]!.bytes[0]).toBe(0)
+    expect(segs[1]!.bytes[767]).toBe(191)
+  })
+
+  it('suffixes pattern labels per screen and keeps a single shared name table', () => {
+    const project = createProject({ name: 'MC', type: 'multicolor' })
+    project.screens.push({ name: 'Screen 2', cells: [...project.screens[0]!.cells] })
+    const segs = multicolorScreenSegments(project, [0, 1])
+    expect(segs.map((s) => s.label)).toEqual(['mc_patterns_1', 'mc_patterns_2', 'mc_names'])
+  })
+
+  it('packs a painted block into the pattern generator', () => {
+    const project = createProject({ name: 'MC', type: 'multicolor' })
+    // block (0,0) top-left, block (1,0) top-right of char cell (0,0).
+    project.screens[0]!.cells[0] = 5
+    project.screens[0]!.cells[1] = 7
+    const [patterns] = multicolorScreenSegments(project, [0])
+    expect(patterns!.bytes[0]).toBe((5 << 4) | 7)
+  })
+
+  it('screenSegments dispatches to the multicolor builder for multicolor projects', () => {
+    const project = createProject({ name: 'MC', type: 'multicolor' })
+    project.screens[0]!.cells[MC_COLUMNS] = 9 // block (0,1)
+    const segs = screenSegments(project, [0])
+    expect(segs.map((s) => s.label)).toEqual(['mc_patterns', 'mc_names'])
   })
 })
 

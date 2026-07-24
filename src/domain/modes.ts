@@ -58,10 +58,25 @@ export const MODES: Record<ProjectType, ModeInfo> = {
     cellHeight: 8,
     cellCount: 32 * 24,
   },
+  multicolor: {
+    type: 'multicolor',
+    label: 'Multicolor Mode',
+    // 64×48 chunky blocks of 4×4 pixels (64·4 = 256, 48·4 = 192). Each cell is
+    // a palette index, not a character code (PLAN.md §10.3).
+    columns: 64,
+    rows: 48,
+    cellWidth: 4,
+    cellHeight: 4,
+    cellCount: 64 * 48,
+  },
 }
 
-/** Number of charsets a project carries: 3 for independent GMII, otherwise 1. */
+/**
+ * Number of charsets a project carries: 0 for multicolor (no glyph data),
+ * 3 for independent GMII, otherwise 1.
+ */
 export function charsetCount(type: ProjectType, g2CharsetMode?: G2CharsetMode): number {
+  if (type === 'multicolor') return 0
   return type === 'graphics2' && g2CharsetMode === 'independent' ? 3 : 1
 }
 

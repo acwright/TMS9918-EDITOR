@@ -117,7 +117,10 @@ function isSummary(value: unknown): value is ProjectSummary {
   return (
     typeof s.id === 'string' &&
     typeof s.name === 'string' &&
-    (s.type === 'text' || s.type === 'graphics1' || s.type === 'graphics2') &&
+    (s.type === 'text' ||
+      s.type === 'graphics1' ||
+      s.type === 'graphics2' ||
+      s.type === 'multicolor') &&
     typeof s.modifiedAt === 'string'
   )
 }

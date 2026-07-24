@@ -50,9 +50,9 @@ export function validateProject(data: unknown): Project {
     fail('Project "name" must be a non-empty string.')
   }
   const type = p.type
-  if (type !== 'text' && type !== 'graphics1' && type !== 'graphics2') {
+  if (type !== 'text' && type !== 'graphics1' && type !== 'graphics2' && type !== 'multicolor') {
     fail(
-      `Project "type" must be "text", "graphics1", or "graphics2" (got ${JSON.stringify(type)}).`,
+      `Project "type" must be "text", "graphics1", "graphics2", or "multicolor" (got ${JSON.stringify(type)}).`,
     )
   }
   if (typeof p.createdAt !== 'string' || Number.isNaN(Date.parse(p.createdAt))) {
@@ -75,8 +75,15 @@ function validateSettings(type: ProjectType, settings: unknown): G2CharsetMode |
   if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
     fail('Project "settings" must be an object.')
   }
+  const s = settings as Record<string, unknown>
+  if (type === 'multicolor') {
+    if (!isValidColorIndex(s.backdrop)) {
+      fail('Multicolor projects require "settings.backdrop" (palette index 0–15).')
+    }
+    return undefined
+  }
   if (type !== 'graphics2') return undefined
-  const mode = (settings as Record<string, unknown>).g2CharsetMode
+  const mode = s.g2CharsetMode
   if (mode !== 'mirrored' && mode !== 'independent') {
     fail('Graphics II projects require "settings.g2CharsetMode" of "mirrored" or "independent".')
   }
@@ -100,7 +107,11 @@ function validateCharsets(charsets: unknown, expectedSets: number): void {
 }
 
 function isByte(value: unknown): boolean {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 255
+  return isIntInRange(value, 255)
+}
+
+function isIntInRange(value: unknown, max: number): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= max
 }
 
 function isColorPair(value: unknown): value is ColorPair {
@@ -133,6 +144,12 @@ function validateColors(type: ProjectType, sets: number, colors: unknown): void 
         fail(`Graphics I colors must be { groups } with ${COLOR_GROUP_COUNT} fg/bg pairs.`)
       }
       break
+    case 'multicolor':
+      // No colour table — colour lives per-cell in the screen grid.
+      if ('fg' in c || 'groups' in c || 'rows' in c) {
+        fail('Multicolor "colors" must be an empty object.')
+      }
+      break
     case 'graphics2': {
       const rows = c.rows
       if (!Array.isArray(rows) || rows.length !== sets) {
@@ -161,6 +178,9 @@ function validateColors(type: ProjectType, sets: number, colors: unknown): void 
 
 function validateScreens(type: ProjectType, screens: unknown): void {
   const { cellCount } = MODES[type]
+  // Multicolor cells are palette indices (0–15); other modes are char codes (0–255).
+  const maxCell = type === 'multicolor' ? 15 : 255
+  const cellNoun = type === 'multicolor' ? 'palette indices' : 'character codes'
   if (!Array.isArray(screens) || screens.length === 0) {
     fail('Project must have at least one screen.')
   }
@@ -170,8 +190,12 @@ function validateScreens(type: ProjectType, screens: unknown): void {
     if (typeof s.name !== 'string' || s.name.length === 0) {
       fail(`Screen ${i} "name" must be a non-empty string.`)
     }
-    if (!Array.isArray(s.cells) || s.cells.length !== cellCount || !s.cells.every(isByte)) {
-      fail(`Screen ${i} "cells" must be ${cellCount} character codes (0–255).`)
+    if (
+      !Array.isArray(s.cells) ||
+      s.cells.length !== cellCount ||
+      !s.cells.every((v) => isIntInRange(v, maxCell))
+    ) {
+      fail(`Screen ${i} "cells" must be ${cellCount} ${cellNoun} (0–${maxCell}).`)
     }
   })
 }

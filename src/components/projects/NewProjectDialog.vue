@@ -16,6 +16,7 @@ const MODE_CHOICES: { type: ProjectType; hint: string }[] = [
   { type: 'text', hint: '40 × 24 · one global color pair' },
   { type: 'graphics1', hint: '32 × 24 · colors per 8-character group' },
   { type: 'graphics2', hint: '32 × 24 · colors per pixel row' },
+  { type: 'multicolor', hint: '64 × 48 · one solid color per 4×4 block' },
 ]
 
 const G2_CHOICES: { mode: G2CharsetMode; label: string; hint: string }[] = [

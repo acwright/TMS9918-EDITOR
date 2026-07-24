@@ -111,8 +111,8 @@ const pngDimensions = computed(() => {
     const size = CHARSET_SHEET_COLS * 8 * pngScale.value
     return `${size} × ${size} px`
   }
-  const { columns, rows, cellWidth } = MODES[project.type]
-  return `${columns * cellWidth * pngScale.value} × ${rows * 8 * pngScale.value} px`
+  const { columns, rows, cellWidth, cellHeight } = MODES[project.type]
+  return `${columns * cellWidth * pngScale.value} × ${rows * cellHeight * pngScale.value} px`
 })
 
 const hasData = computed(() => {

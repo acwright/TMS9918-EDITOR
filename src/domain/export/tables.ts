@@ -9,6 +9,10 @@
 import type { Project } from '../types'
 import { isGraphics1Colors, isTextColors } from '../types'
 import { CHAR_BYTES, MODES, charsetCount } from '../modes'
+import {
+  nameTableBytes as multicolorNameTable,
+  patternTableBytes as multicolorPatternTable,
+} from '../multicolor'
 
 /** A labelled run of bytes — one table (or one table per charset/screen). */
 export interface ByteSegment {
@@ -120,6 +124,7 @@ export function charsetSegments(project: Project, selection: CharsetSelection): 
 
 /** Segments for a screen export — one name-table segment per selected screen. */
 export function screenSegments(project: Project, screenIndices: number[]): ByteSegment[] {
+  if (project.type === 'multicolor') return multicolorScreenSegments(project, screenIndices)
   const { columns } = MODES[project.type]
   return screenIndices.map((index) => ({
     label: `screen_${index + 1}`,
@@ -127,4 +132,32 @@ export function screenSegments(project: Project, screenIndices: number[]): ByteS
     bytes: nameTableBytes(project, index),
     perLine: columns,
   }))
+}
+
+/**
+ * Segments for a multicolor screen export (PLAN.md §10.4): one Pattern
+ * Generator (1536 bytes) synthesised from each selected screen's 64×48 grid,
+ * followed by a single shared Name Table (768 bytes, fixed framebuffer layout).
+ */
+export function multicolorScreenSegments(
+  project: Project,
+  screenIndices: number[],
+): ByteSegment[] {
+  const multi = screenIndices.length > 1
+  const suffix = (index: number) => (multi ? `_${index + 1}` : '')
+  const segments: ByteSegment[] = screenIndices.map((index) => ({
+    label: `mc_patterns${suffix(index)}`,
+    description: multi
+      ? `Pattern generator: ${project.screens[index]?.name ?? `Screen ${index + 1}`}`
+      : 'Pattern generator',
+    bytes: multicolorPatternTable(project.screens[index]?.cells ?? []),
+    perLine: CHAR_BYTES,
+  }))
+  segments.push({
+    label: 'mc_names',
+    description: 'Name table (fixed framebuffer layout — shared by all screens)',
+    bytes: multicolorNameTable(),
+    perLine: 32,
+  })
+  return segments
 }

@@ -5,7 +5,7 @@ import { isGraphics1Colors, isGraphics2Colors, isTextColors } from '@/domain/typ
 import { useEditorStore } from '../editor'
 import { useProjectsStore } from '../projects'
 
-function setup(type: 'text' | 'graphics1' | 'graphics2' = 'graphics1') {
+function setup(type: 'text' | 'graphics1' | 'graphics2' | 'multicolor' = 'graphics1') {
   localStorage.clear()
   setActivePinia(createPinia())
   const projects = useProjectsStore()
@@ -375,6 +375,55 @@ describe('editor store', () => {
       editor.addScreen()
       editor.reset()
       expect(editor.selectedScreen).toBe(0)
+    })
+  })
+
+  describe('multicolor (Phase 16)', () => {
+    it('paints a palette index onto the 64×48 grid as an undoable command', () => {
+      const { editor } = setup('multicolor')
+      editor.setPaintColor(7)
+      editor.beginStroke('Draw')
+      editor.paintCell(3, 2, editor.paintColor)
+      editor.endStroke()
+
+      const columns = 64
+      expect(editor.currentScreen?.cells[2 * columns + 3]).toBe(7)
+      editor.undo()
+      expect(editor.currentScreen?.cells[2 * columns + 3]).toBe(0)
+    })
+
+    it('setPaintColor clamps out-of-range indices to a no-op', () => {
+      const { editor } = setup('multicolor')
+      editor.setPaintColor(9)
+      expect(editor.paintColor).toBe(9)
+      editor.setPaintColor(16) // out of range → ignored
+      editor.setPaintColor(-1)
+      expect(editor.paintColor).toBe(9)
+    })
+
+    it('exposes the backdrop and sets it as an undoable, dirtying command', () => {
+      const { projects, editor } = setup('multicolor')
+      expect(editor.backdrop).toBe(1)
+      expect(projects.saveState).toBe('saved')
+
+      editor.setBackdrop(4)
+      expect(editor.backdrop).toBe(4)
+      expect(projects.current?.settings.backdrop).toBe(4)
+      expect(projects.saveState).toBe('unsaved')
+
+      expect(editor.undo()).toBe('Set Backdrop Color')
+      expect(editor.backdrop).toBe(1)
+    })
+
+    it('setBackdrop no-ops on the same value, an invalid index, or a non-multicolor project', () => {
+      const mc = setup('multicolor')
+      mc.editor.setBackdrop(1) // already black
+      mc.editor.setBackdrop(99) // out of range
+      expect(mc.editor.canUndo).toBe(false)
+
+      const text = setup('text')
+      text.editor.setBackdrop(5)
+      expect(text.editor.canUndo).toBe(false)
     })
   })
 

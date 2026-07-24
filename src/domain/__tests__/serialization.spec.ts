@@ -14,10 +14,13 @@ function clone(project: Project): Project {
 
 describe('serialization', () => {
   describe('round-trip', () => {
-    it.each(['text', 'graphics1', 'graphics2'] as const)('round-trips a %s project', (type) => {
-      const project = createProject({ name: 'RT', type })
-      expect(deserializeProject(serializeProject(project))).toEqual(project)
-    })
+    it.each(['text', 'graphics1', 'graphics2', 'multicolor'] as const)(
+      'round-trips a %s project',
+      (type) => {
+        const project = createProject({ name: 'RT', type })
+        expect(deserializeProject(serializeProject(project))).toEqual(project)
+      },
+    )
 
     it('round-trips an independent graphics2 project', () => {
       const project = createProject({ name: 'RT', type: 'graphics2', g2CharsetMode: 'independent' })
@@ -65,7 +68,29 @@ describe('serialization', () => {
 
     it('rejects an unknown type', () => {
       const p = clone(createProject({ name: 'X', type: 'text' }))
-      expect(rejectionOf({ ...p, type: 'multicolor' }).message).toContain('"type"')
+      expect(rejectionOf({ ...p, type: 'graphics3' }).message).toContain('"type"')
+    })
+
+    it('rejects multicolor without a backdrop setting', () => {
+      const p = clone(createProject({ name: 'X', type: 'multicolor' }))
+      expect(rejectionOf({ ...p, settings: {} }).message).toContain('backdrop')
+    })
+
+    it('rejects multicolor with a non-empty colors table', () => {
+      const p = clone(createProject({ name: 'X', type: 'multicolor' }))
+      expect(rejectionOf({ ...p, colors: { fg: 1, bg: 0 } }).message).toContain('empty object')
+    })
+
+    it('rejects multicolor cells outside the palette range', () => {
+      const p = clone(createProject({ name: 'X', type: 'multicolor' }))
+      p.screens[0]!.cells[0] = 16
+      expect(rejectionOf(p).message).toContain('palette indices')
+    })
+
+    it('rejects the wrong multicolor cell count', () => {
+      const p = clone(createProject({ name: 'X', type: 'multicolor' }))
+      p.screens[0]!.cells.pop()
+      expect(rejectionOf(p).message).toContain('3072')
     })
 
     it('rejects bad dates', () => {

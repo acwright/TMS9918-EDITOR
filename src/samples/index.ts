@@ -184,6 +184,64 @@ function iconsSample(): Project {
   return project
 }
 
+// --- Multicolor Mode: a chunky 64×48 block scene + full-palette strip ---
+
+function multicolorSample(): Project {
+  const project = createProject({ name: 'Sample — Vista', type: 'multicolor' })
+  const { columns: cols, rows } = MODES.multicolor // 64 × 48
+  const cells = project.screens[0]!.cells
+  const set = (x: number, y: number, c: number) => {
+    if (x >= 0 && x < cols && y >= 0 && y < rows) cells[y * cols + x] = c
+  }
+
+  const PALETTE_ROWS = 2 // full-colour strip along the bottom
+  const grassTop = rows - PALETTE_ROWS
+
+  // Gentle hills — the higher of two triangular ridges sets the horizon.
+  const horizon = (x: number) => {
+    const back = Math.max(0, 9 - Math.abs(x - 14) * 0.9)
+    const front = Math.max(0, 12 - Math.abs(x - 46) * 0.8)
+    return Math.round(34 - Math.max(back, front))
+  }
+
+  for (let y = 0; y < grassTop; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (y < horizon(x)) set(x, y, y < 12 ? 4 : 5) // sky: dark blue → light blue
+      else set(x, y, y < grassTop - 4 ? 2 : 12) // grass: medium green → dark green foreground
+    }
+  }
+
+  // Sun — a light-yellow disc with a dark-yellow rim, drawn over the sky.
+  const sunX = 49
+  const sunY = 9
+  for (let dy = -7; dy <= 7; dy++) {
+    for (let dx = -7; dx <= 7; dx++) {
+      const d = Math.hypot(dx, dy)
+      if (d <= 6) set(sunX + dx, sunY + dy, d <= 4 ? 11 : 10)
+    }
+  }
+
+  // Clouds — white tops with a grey underside.
+  const cloud = (cx: number, cy: number) => {
+    for (let x = 0; x < 7; x++) {
+      set(cx + x, cy, 15)
+      set(cx + x, cy + 1, 14)
+    }
+    set(cx + 1, cy - 1, 15)
+    set(cx + 3, cy - 1, 15)
+  }
+  cloud(6, 6)
+  cloud(24, 4)
+
+  // Full-palette strip: all 16 colours, four blocks wide each (16 × 4 = 64).
+  for (let x = 0; x < cols; x++) {
+    const color = Math.floor(x / 4)
+    for (let y = grassTop; y < rows; y++) set(x, y, color)
+  }
+
+  return project
+}
+
 export const SAMPLES: Sample[] = [
   {
     id: 'text-greeting',
@@ -202,5 +260,11 @@ export const SAMPLES: Sample[] = [
     name: 'Icons',
     description: 'Graphics II · multicolor smiley + heart (per-row colors)',
     build: iconsSample,
+  },
+  {
+    id: 'vista',
+    name: 'Vista',
+    description: 'Multicolor · a 64×48 block scene + full-palette strip',
+    build: multicolorSample,
   },
 ]

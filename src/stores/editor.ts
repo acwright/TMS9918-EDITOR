@@ -36,6 +36,9 @@ export const useEditorStore = defineStore('editor', () => {
    */
   const selectedRow = ref(0)
 
+  /** Multicolor: the palette index (0–15) the screen brush paints (Decision 9). */
+  const paintColor = ref(15)
+
   const history = reactive(new CommandHistory())
 
   const canUndo = computed(() => history.canUndo)
@@ -86,6 +89,33 @@ export const useEditorStore = defineStore('editor', () => {
 
   function selectRow(row: number): void {
     selectedRow.value = Math.max(0, Math.min(7, row))
+  }
+
+  /** Multicolor: set the brush colour (no-op on an invalid index). Not undoable — view state. */
+  function setPaintColor(index: number): void {
+    if (isValidColorIndex(index)) paintColor.value = index
+  }
+
+  /** Multicolor: palette index shown behind transparent blocks (VDP register 7). */
+  const backdrop = computed(() => projects.current?.settings.backdrop ?? 1)
+
+  /** Multicolor: set the backdrop colour as an undoable command. */
+  function setBackdrop(index: number): void {
+    const project = projects.current
+    if (!project || project.type !== 'multicolor' || !isValidColorIndex(index)) return
+    const prev = project.settings.backdrop ?? 1
+    if (prev === index) return
+    const apply = (value: number) => {
+      const p = projects.current
+      if (!p) return
+      p.settings.backdrop = value
+      projects.markDirty()
+    }
+    history.execute({
+      label: 'Set Backdrop Color',
+      do: () => apply(index),
+      undo: () => apply(prev),
+    })
   }
 
   /** Number of charsets the open project carries (3 for independent GMII). */
@@ -305,11 +335,16 @@ export const useEditorStore = defineStore('editor', () => {
     if (!project || !screen) return
     const { columns } = MODES[project.type]
     if (screenOps.getCell(screen.cells, columns, x, y) === code) return
-    executeCellsChange(
-      code === 0 ? 'Erase Cell' : 'Place Character',
-      selectedScreen.value,
-      screenOps.setCell(screen.cells, columns, x, y, code),
-    )
+    const isMulticolor = project.type === 'multicolor'
+    const label =
+      code === 0
+        ? isMulticolor
+          ? 'Erase Block'
+          : 'Erase Cell'
+        : isMulticolor
+          ? 'Paint Block'
+          : 'Place Character'
+    executeCellsChange(label, selectedScreen.value, screenOps.setCell(screen.cells, columns, x, y, code))
   }
 
   function addScreen(): void {
@@ -382,6 +417,8 @@ export const useEditorStore = defineStore('editor', () => {
     selectedCharset,
     selectedChar,
     selectedRow,
+    paintColor,
+    backdrop,
     selectedScreen,
     screenScale,
     showGrid,
@@ -402,6 +439,8 @@ export const useEditorStore = defineStore('editor', () => {
     selectChar,
     selectCharset,
     selectRow,
+    setPaintColor,
+    setBackdrop,
     selectScreen,
     setG2CharsetMode,
     setColor,

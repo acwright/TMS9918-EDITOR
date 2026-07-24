@@ -8,9 +8,16 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Round 2 complete — released as `v1.1.0` (Round 1 / Phases 1–10 was `v1.0.0`)
-- **Last updated:** 2026-07-23
-- **Round 2 (target `v1.1.0`)** kicks off here: app icon/favicon, a mode-switching &
+- **Active phase:** Round 3 (**Multicolor Mode**) — Phases 15–18 code-complete at `1.2.0`
+  (210 tests green); only the outward-facing release steps (commit/tag/push/GitHub release)
+  remain, pending user go-ahead. Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
+- **Last updated:** 2026-07-24
+- **Round 3 (target `v1.2.0`)** kicks off here: a fourth VDP mode — **Multicolor** — with a
+  new project type (a 64×48 chunky-pixel colour grid), a stripped-down editor (no character
+  or character-set panels; a single-select colour rail + the existing screen canvas/toolbar),
+  and multicolor export (synthesised Pattern Generator + fixed Name Table). See **§10** for
+  scope, decisions, the mode/export reference, and Phases 15–18.
+- **Round 2 (target `v1.1.0`)** delivered: app icon/favicon, a mode-switching &
   paste-to-set character byte box, and the first real **Export** system (screens + character
   sets). See **§9** for scope, decisions, the export-format reference, and Phases 11–14.
 - Phase 2 domain layer lives in `src/domain/` (types, modes, palette, factory, charOps,
@@ -63,17 +70,23 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 A single-page web application for creating and editing TMS9918 character sets and screen
 maps. Users manage multiple project files (persisted in browser localStorage, plus
-download/upload as JSON), each targeting one of three VDP modes:
+download/upload as JSON), each targeting one of four VDP modes:
 
 | Mode | Screen grid | Cell size | Character sets | Color model |
 |---|---|---|---|---|
 | Text Mode | 40 × 24 | 6 × 8 px | 1 × 256 chars | One global fg/bg pair |
 | Graphics Mode I | 32 × 24 | 8 × 8 px | 1 × 256 chars | fg/bg pair per character-set row (8 chars/group, 32 groups — matches HW color table) |
 | Graphics Mode II | 32 × 24 | 8 × 8 px | 1 × 256 mirrored **or** 3 × 256 independent (screen thirds) | fg/bg pair per pixel row of each character (8 pairs/char — matches HW) |
+| Multicolor Mode | 64 × 48 | 4 × 4 px | none (no glyph/charset editing) | one solid palette color per 4×4 block; transparent blocks show the backdrop |
+
+Multicolor is unlike the other three: there are **no characters and no character set to
+design** — the document is directly a 64×48 grid of palette-colour indices (one solid
+colour per chunky block). The Name/Pattern tables the hardware needs are synthesised only
+at export time (see **§10**). It is added in Round 3.
 
 Out of scope for now: **Import implementation** (the toolbar Import/Export share button is
-replaced by an **Export**-only button in Round 2; Import returns later as its own button)
-and **Multicolor Mode**. Export is implemented in Round 2 — see **§9**.
+replaced by an **Export**-only button in Round 2; Import returns later as its own button).
+Export is implemented in Round 2 — see **§9**; extended to Multicolor in Round 3 (**§10**).
 
 ## 2. Confirmed Design Decisions
 
@@ -139,6 +152,18 @@ neutral background.
 - **Graphics II:** pattern and color tables are 8 bytes per character; each pattern byte
   row has its own fg/bg nibble pair. Screen is split into three 256-char thirds
   (rows 0–7, 8–15, 16–23) which may share one charset (mirrored) or use independent ones.
+- **Multicolor:** the screen is a 64×48 matrix of 4×4-pixel blocks (64·4 = 256, 48·4 = 192),
+  each block one of the 16 palette entries (0 = transparent → shows the backdrop). There is
+  **no colour table and no user-facing character data** — colour comes straight from the
+  Pattern Generator nibbles. Hardware layout (synthesised on export, never edited directly):
+  - **Name Table** — the fixed 768-byte framebuffer fill `name[r*32 + c] = (r >> 2)*32 + c`
+    (r = 0–23 char rows, c = 0–31 char cols), which makes patterns 0–191 tile the screen.
+    Identical for every multicolor screen.
+  - **Pattern Generator** — 192 patterns × 8 bytes = 1536 bytes. For char cell (c, r) the
+    used byte offset within its pattern is `2*(r & 3)`; that byte's high nibble is the
+    top-left block and low nibble the top-right, and the next byte is bottom-left/bottom-right
+    — i.e. one byte encodes two horizontally-adjacent 4×4 blocks. See §10.3 for the exact
+    grid↔byte mapping used by the exporter.
 
 ## 5. Data Model (Project File JSON)
 
@@ -147,22 +172,26 @@ neutral background.
   "version": 1,
   "id": "uuid",                    // storage key
   "name": "My Project",
-  "type": "text" | "graphics1" | "graphics2",
+  "type": "text" | "graphics1" | "graphics2" | "multicolor",
   "createdAt": "ISO-8601",
   "modifiedAt": "ISO-8601",
   "settings": {
-    "g2CharsetMode": "mirrored" | "independent"   // graphics2 only
+    "g2CharsetMode": "mirrored" | "independent",  // graphics2 only
+    "backdrop": 1                                 // multicolor only: palette index behind transparent blocks
   },
-  // 1 charset for text/graphics1/mirrored-g2; 3 for independent-g2.
+  // 1 charset for text/graphics1/mirrored-g2; 3 for independent-g2; [] (empty) for multicolor.
   // Each charset: 256 chars × 8 bytes (pattern rows, MSB = leftmost pixel).
   "charsets": [ [ [0,0,0,0,0,0,0,0], ... ×256 ], ... ],
   "colors": {
-    // text:      { "fg": 15, "bg": 4 }
-    // graphics1: { "groups": [ {"fg":15,"bg":1}, ... ×32 ] }        // one per picker row
-    // graphics2: { "rows": [ [ {"fg":15,"bg":1} ×8 ] ×256 ] ×(1|3) }// per char per pixel row, per charset
+    // text:       { "fg": 15, "bg": 4 }
+    // graphics1:  { "groups": [ {"fg":15,"bg":1}, ... ×32 ] }        // one per picker row
+    // graphics2:  { "rows": [ [ {"fg":15,"bg":1} ×8 ] ×256 ] ×(1|3) }// per char per pixel row, per charset
+    // multicolor: {} (empty — colour lives per-cell in `screens[].cells`; backdrop in settings)
   },
   "screens": [
-    { "name": "Screen 1", "cells": [ /* charCode ints, row-major, 768 or 960 */ ] }
+    // text/graphics1/graphics2: cells are charCode ints (0–255), row-major, 768 or 960.
+    // multicolor:               cells are palette indices (0–15), row-major, 64×48 = 3072.
+    { "name": "Screen 1", "cells": [ /* ints, row-major */ ] }
   ]
 }
 ```
@@ -330,7 +359,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Import** of assembler/BASIC/binary/PNG and **Magellan project files** — its own toolbar
   button, a later round (Round 2 ships Export only). Whole-project JSON import already exists
   in the project manager.
-- Multicolor Mode
+- **Multicolor Mode** — implemented in Round 3 (§10). ~~deferred~~
 - Copy/paste characters between slots; charset slot reordering
 - Screen cell-region selection, copy/paste, stamp tools
 - Optional: shareable URLs, IndexedDB migration if localStorage quota becomes a problem
@@ -474,3 +503,196 @@ Formats (committed unless marked stretch):
       committed, tagged `v1.1.0`, pushed to `origin/main`.
 - [x] GitHub release published for `v1.1.0` with a summary of the round.
 - **Exit criteria:** ✅ README reflects Round 2; `v1.1.0` tagged, pushed, and released.
+
+---
+
+## 10. Round 3 — Multicolor Mode (target `v1.2.0`)
+
+Third round of improvements on top of `v1.1.0`. Adds a **fourth VDP mode** — Multicolor —
+as a first-class project type. Four phases (15–18). Same conventions as before: all project
+mutations go through the command layer (undoable), pure logic lives in `src/domain/` with
+Vitest specs, chrome stays in the base components.
+
+### 10.1 Scope
+
+1. **New `multicolor` project type** — a 64×48 grid of palette-colour indices (one solid
+   colour per 4×4 block; no characters, no charset, no colour table). New-project dialog
+   gains a fourth mode with no charset sub-options (Phase 15).
+2. **Stripped-down multicolor editor** — reuse the screen canvas + toolbar, but **drop the
+   Character panel and Character-Set picker entirely** (they have no meaning here). Add a
+   **single-select colour rail** (paint colour + selected-colour readout; left-click paints,
+   right-click / secondary erases to transparent). Backdrop colour setting governs how
+   transparent blocks render (Phase 16).
+3. **Multicolor export** — synthesise the hardware **Pattern Generator** (1536 bytes) from
+   the 64×48 grid plus the fixed **Name Table** (768 bytes); wire into the existing
+   `ExportDialog` (screen scope only — no charset scope). ca65 / Z80 / BASIC / Binary / PNG
+   (Phase 17).
+4. **Sample + README + release** — bundle a multicolor sample project, document the mode,
+   bump to `1.2.0`, tag `v1.2.0`, push, release (Phase 18).
+
+### 10.2 Confirmed Design Decisions (Round 3)
+
+Settled with the user at Round 3 kickoff. Do not re-litigate without user input:
+
+8. **Multicolor is a distinct project type, not a variant of an existing one.**
+   `ProjectType` gains `'multicolor'`. Its screen `cells` are **palette indices (0–15)**, not
+   character codes, and its length is 64×48 = **3072**. `charsets` is `[]` (empty) and
+   `colors` is `{}` (empty) — colour lives per-cell in the screen. This reuses the existing
+   multi-screen support, `Screen` shape, `screenOps` transforms, and autosave/undo machinery
+   unchanged. A `MulticolorColors` marker type (empty object) keeps the `ProjectColors` union
+   and its narrowing helpers well-formed.
+9. **One solid colour per block — single-select colour picker, not fg/bg.** Unlike the other
+   three modes, a multicolor block has no foreground/background pair. The colour picker for
+   this mode is single-select: one active **paint colour** (selection ring, no F/B badges).
+   Left-click/drag paints the paint colour; right-click/drag (and the touch secondary toggle)
+   erases to **transparent** (index 0). Reuse `ColorPicker.vue` via a `singleSelect` mode
+   rather than forking a new component where practical.
+10. **No character or character-set UI in this mode.** The Character panel (pixel editor,
+    byte box, wallpaper preview) and the Character-Set picker are **not rendered** for
+    multicolor projects. The editor is effectively single-column: colour rail + screen
+    panel. Because there is only one panel, the responsive Character/Screen tab split
+    (Phase 9) does not apply — the layout is one column at every breakpoint.
+11. **Backdrop colour lives in `settings.backdrop`.** Transparent blocks (index 0) render as
+    the backdrop (VDP register 7). Default backdrop = `1` (black). A blank multicolor project
+    fills all 3072 cells with `0` (transparent) so it opens as a solid backdrop-coloured
+    canvas. Editing the backdrop is a small control in the colour rail (undoable command).
+12. **Export synthesises hardware tables; the model stays a plain colour grid.** No Name/
+    Pattern data is ever stored in the project — the exporter derives the fixed 768-byte Name
+    Table and the 1536-byte Pattern Generator from the grid at export time (§10.3). Export is
+    read-only serialization, no schema changes beyond the new type/settings above.
+
+### 10.3 Multicolor reference (grid ↔ hardware)
+
+The editable model is a 64×48 array `grid[y][x]` (row-major in `cells`, index `y*64 + x`),
+`y` = 0–47 top→bottom, `x` = 0–63 left→right, each value a palette index 0–15.
+
+**Name Table (768 bytes, fixed):** `name[r*32 + c] = (r >> 2) * 32 + c` for char row
+`r` = 0–23, char col `c` = 0–31. Constant for every multicolor screen; emitted once.
+
+**Pattern Generator (192 patterns × 8 = 1536 bytes):** char cell (c, r) covers block columns
+`2c, 2c+1` and block rows `2r, 2r+1`. Its pattern index is `p = (r >> 2) * 32 + c`; within
+that pattern the two bytes it owns are at offset `k = 2 * (r & 3)` and `k + 1`:
+
+```
+byte[p*8 + k]   = (grid[2r  ][2c] << 4) | grid[2r  ][2c+1]   // top-left | top-right
+byte[p*8 + k+1] = (grid[2r+1][2c] << 4) | grid[2r+1][2c+1]   // bottom-left | bottom-right
+```
+
+So one 8-byte pattern encodes a 2-block-wide × 8-block-tall column spanning 4 vertically
+stacked char cells; 32 pattern columns × 6 row-groups = 192 patterns cover the whole 64×48.
+
+### 10.4 Multicolor export reference
+
+| Table | Source | Bytes | Notes |
+|---|---|---|---|
+| **Pattern Generator** | 64×48 `cells` (§10.3) | 1536 per screen | Colour nibbles; label `mc_patterns[_n]`. |
+| **Name** | fixed fill (§10.3) | 768 (shared) | Same for all screens; emitted once as `mc_names`. |
+
+- **No colour table** in multicolor — omit the Colours toggle for this scope.
+- **ExportDialog** opens in **screen** scope only (screen toolbar). Charset scope is hidden
+  because there are no charsets. "Current screen" exports that screen's Pattern Generator +
+  the shared Name Table; "All screens" exports each screen's pattern table plus one Name Table.
+- **Formats:** ca65 `.byte`, Z80 `db`, BASIC `DATA`, raw Binary, and PNG — all reuse the
+  existing renderers over the `ByteSegment` model. PNG renders the 64×48 grid (transparent →
+  backdrop) at a selectable scale.
+
+### 10.5 Phases
+
+#### Phase 15 — Multicolor Domain & Data Model ✅
+- [x] `types.ts`: added `'multicolor'` to `ProjectType`; added `MulticolorColors`
+      (`Record<string, never>` marker) to the `ProjectColors` union + `isMulticolorColors`
+      narrowing (`!fg && !groups && !rows`); added `backdrop?: ColorIndex` to `ProjectSettings`.
+- [x] `modes.ts`: added the `multicolor` `ModeInfo` (columns 64, rows 48, cellWidth 4,
+      cellHeight 4, cellCount 3072); `charsetCount('multicolor')` returns `0`.
+- [x] `factory.ts`: blank multicolor project — `charsets: []`, `colors: {}`,
+      `settings.backdrop = 1` (black), one screen of 3072 `0`s (transparent).
+- [x] New `src/domain/multicolor.ts`: `nameTableBytes()` (fixed 768-byte fill) and
+      `patternTableBytes(cells)` (64×48 grid → 1536 bytes) per §10.3, with `MC_*` size/dim
+      constants. Standalone (no `modes` import) to avoid a cycle.
+- [x] `serialization.ts`: accepts `multicolor`; validates required `backdrop` (0–15), empty
+      `charsets` (count 0), empty `colors`, and `cells` length 3072 with values 0–15
+      (added `isIntInRange`; screen check now parameterised by mode — 0–15 vs 0–255).
+- [x] `colors.ts`/`resolveRowColors` left character-oriented; multicolor never calls it.
+- [x] Vitest: factory defaults, mode metadata + `charsetCount 0`, name/pattern synthesis
+      (dimensions, packing, per-cell routing, row-group mapping, full grid→tables→decode
+      round-trip), and multicolor validation accept/reject cases. Suite **200 green**
+      (was 186); type-check + build + lint clean. Also fixed the old serialization spec that
+      used `'multicolor'` as its example *unknown* type (now `'graphics3'`).
+- **Exit criteria:** ✅ a valid multicolor project can be created, (de)serialized, and its
+  hardware tables synthesised, all under test; no UI yet.
+
+#### Phase 16 — Multicolor Editor UI ✅
+- [x] `NewProjectDialog`: added **Multicolor Mode** as a fourth mode option (no charset-mode
+      sub-choice; the existing `type === 'graphics2'` gate already suppresses it); creating
+      one routes to the editor and the factory ignores `g2CharsetMode`.
+- [x] `EditorView`: branches on `isMulticolor` → a dedicated single-column `<main>` (slim
+      colour rail `aside` + `ScreenPanel`); the non-multicolor `<main>` keeps the Character/
+      Charset columns + responsive tabs. Multicolor renders **no** `CharacterPanel`/
+      `CharsetPicker` and no tab switcher (Decision 10).
+- [x] Colour rail: new `MulticolorPanel.vue` = `ColorPicker.vue` in a new `singleSelect` mode
+      (active paint-colour outline ring, no F/B badges/toggle) + a compact **backdrop**
+      mini-picker. Editor store gained `paintColor` (view state, `setPaintColor` clamped) and
+      `backdrop` (computed from `settings.backdrop`) with an undoable `setBackdrop`.
+- [x] `src/utils/screenRender.ts`: `renderScreen` now dispatches to `renderMulticolorScreen`
+      (solid 4×4 blocks; transparent → backdrop → neutral); the char-mode path and
+      `screenToCanvas` switched from a literal `8` to `cellHeight` (correct for 4px cells).
+      `ScreenCanvas.vue` paints a palette index (`brushCode` = `paintColor` in multicolor,
+      else `selectedChar`); right-click / touch-secondary erases to transparent (0).
+- [x] Toolbar (`ScreenPanel`): unchanged order; the fill button now fills with the paint
+      colour in multicolor (label swaps too) via `fillScreen()`; clear-all already sets 0
+      (transparent). `paintCell` labels are mode-aware (Paint/Erase Block).
+- [x] Touch + responsive: single column at every breakpoint; base components already provide
+      the ≥40px `pointer-coarse` targets; `ScreenCanvas` pointer-capture path is shared.
+- [x] Vitest: 4 multicolor store specs (paint→grid undo, `setPaintColor` clamp, backdrop
+      get/set/undo/dirty, `setBackdrop` no-ops) + a repository regression spec. Suite
+      **205 green**; type-check + build + lint clean; every changed SFC transforms cleanly
+      through the Vite dev pipeline.
+- [x] Fix (found during smoke test): the localStorage index-summary guard
+      (`repository.ts` `isSummary`) rejected `'multicolor'`, so saved multicolor projects were
+      stripped from the index on read and never showed in the manager. Added `'multicolor'` +
+      a regression test. Also dropped the colour-rail help text for consistency with the other
+      editors (no per-panel hints elsewhere).
+- **Exit criteria:** ✅ create a multicolor project and paint a full 64×48 screen end-to-end
+  with working undo/redo, backdrop, grid, transforms, and multiple screens.
+  *(Note: verified via the store specs + full production build + a Vite dev-transform smoke of
+  every changed module; an in-browser visual pass was not run — no browser driver is installed
+  in this environment.)*
+
+#### Phase 17 — Multicolor Export ✅
+- [x] `src/domain/export/tables.ts`: new `multicolorScreenSegments` — one Pattern Generator
+      per selected screen (`mc_patterns[_n]`, 1536 bytes, `perLine` 8) + one shared Name Table
+      (`mc_names`, 768 bytes, `perLine` 32), built on `multicolor.ts` (`patternTableBytes`/
+      `nameTableBytes`) and the existing `ByteSegment` model. `screenSegments` dispatches to it
+      for `type === 'multicolor'`, so every downstream renderer (asm/BASIC/binary) and the
+      dialog work unchanged.
+- [x] `ExportDialog.vue`: multicolor reaches only the **screen** scope (there is no charset
+      entry point without a `CharsetPicker`, so charset scope + the Colours toggle are
+      inherently absent); Current/All screens, formats ca65 / Z80 / BASIC / Binary / PNG all
+      apply. Fixed the PNG-dimension summary to use `cellHeight` (was a hardcoded `8`, wrong
+      for 4px multicolor cells). PNG renders the 64×48 grid via `renderScreen`'s multicolor
+      dispatch (transparent → backdrop).
+- [x] Screen toolbar Export button already opens `ExportDialog scope="screen"` — works for
+      multicolor with no change.
+- [x] Vitest (4 new, suite **209 green**): single-screen segment set + byte lengths + name
+      table endpoints (0…191), per-screen label suffixes with a single shared name table,
+      nibble packing of a painted block, and the `screenSegments` dispatch. Type-check + build
+      + lint clean; changed SFC/module transform cleanly through Vite dev.
+- **Exit criteria:** ✅ a multicolor screen exports to ca65, Z80, BASIC, binary, and PNG; the
+  synthesised Pattern Generator round-trips the on-screen data (verified by the packing/decode
+  specs from Phase 15 + the segment specs here).
+
+#### Phase 18 — Sample, README, Versioning & Release
+- [x] Bundled a multicolor **sample project** — `Sample — Vista` in `src/samples/index.ts`
+      (`multicolorSample`): a 64×48 chunky scene (two-tone sky, triangular hills, a rimmed sun,
+      clouds) plus a full 16-colour palette strip along the bottom. Loadable from the manager's
+      "Load a Sample" row; the samples spec validates it (7 green).
+- [x] README: Multicolor added to the intro, the modes/features table ("Four VDP modes"), a
+      new **Multicolor editor** feature bullet, the Export section (Pattern Generator + shared
+      Name Table, screen-only scope, no colour table), and the sample list (Vista).
+- [x] PLAN Current Status + checkboxes updated.
+- [x] Bumped `package.json` to `1.2.0` (surfaces via `__APP_VERSION__` → manager footer;
+      confirmed in the Pages build). Full suite **210 green**; `VITE_BASE` build + lint clean.
+- [ ] Commit, tag `v1.2.0`, push, and publish the GitHub release — pending user go-ahead on
+      the outward-facing git steps.
+- **Exit criteria:** README reflects Round 3; a multicolor sample ships; `v1.2.0` tagged,
+  pushed, and released.

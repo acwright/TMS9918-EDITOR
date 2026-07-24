@@ -37,6 +37,14 @@ import { modLabel, shiftModLabel } from '@/utils/platform'
 const projects = useProjectsStore()
 const editor = useEditorStore()
 
+const isMulticolor = computed(() => projects.current?.type === 'multicolor')
+
+/** Fill the whole screen — with the paint colour (multicolor) or the selected character. */
+function fillScreen() {
+  const code = isMulticolor.value ? editor.paintColor : editor.selectedChar
+  editor.screenTransform('Fill Screen', (cells) => screenOps.fill(cells, code))
+}
+
 // Scale/grid live in the editor store so keyboard shortcuts can drive them;
 // this component owns only the auto-fit measurement.
 const viewport = useTemplateRef('viewport')
@@ -195,12 +203,8 @@ const pageLabel = computed(() => `${editor.selectedScreen + 1}/${editor.screenCo
         <Eraser class="size-4" />
       </AppButton>
       <AppButton
-        label="Fill Screen with Selected Character"
-        @click="
-          editor.screenTransform('Fill Screen', (cells) =>
-            screenOps.fill(cells, editor.selectedChar),
-          )
-        "
+        :label="isMulticolor ? 'Fill Screen with Paint Colour' : 'Fill Screen with Selected Character'"
+        @click="fillScreen"
       >
         <PaintBucket class="size-4" />
       </AppButton>

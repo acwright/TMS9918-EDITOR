@@ -3,7 +3,7 @@
  * Mirrors the JSON schema in PLAN.md §5 — keep the two in sync.
  */
 
-export type ProjectType = 'text' | 'graphics1' | 'graphics2'
+export type ProjectType = 'text' | 'graphics1' | 'graphics2' | 'multicolor'
 
 /** Graphics Mode II charset arrangement (PLAN.md Decision 1). */
 export type G2CharsetMode = 'mirrored' | 'independent'
@@ -41,7 +41,14 @@ export interface Graphics2Colors {
   rows: ColorPair[][][]
 }
 
-export type ProjectColors = TextColors | Graphics1Colors | Graphics2Colors
+/**
+ * Multicolor: no colour table — every 4×4 block carries its own palette index
+ * directly in the screen grid (`screens[].cells`), so there is nothing to store
+ * here. An empty marker keeps the `ProjectColors` union well-formed.
+ */
+export type MulticolorColors = Record<string, never>
+
+export type ProjectColors = TextColors | Graphics1Colors | Graphics2Colors | MulticolorColors
 
 export interface Screen {
   name: string
@@ -52,6 +59,8 @@ export interface Screen {
 export interface ProjectSettings {
   /** Present for graphics2 projects only. */
   g2CharsetMode?: G2CharsetMode
+  /** Multicolor only: palette index (0–15) shown behind transparent blocks (VDP register 7). */
+  backdrop?: ColorIndex
 }
 
 export interface Project {
@@ -79,4 +88,8 @@ export function isGraphics1Colors(colors: ProjectColors): colors is Graphics1Col
 
 export function isGraphics2Colors(colors: ProjectColors): colors is Graphics2Colors {
   return 'rows' in colors
+}
+
+export function isMulticolorColors(colors: ProjectColors): colors is MulticolorColors {
+  return !('fg' in colors) && !('groups' in colors) && !('rows' in colors)
 }

@@ -4,6 +4,12 @@ import AppTooltip from '@/components/base/AppTooltip.vue'
 import { PALETTE } from '@/domain/palette'
 import { useEditorStore, type ColorSlot } from '@/stores/editor'
 
+/**
+ * `singleSelect` (Multicolor, Decision 9): one active paint colour instead of an
+ * fg/bg pair — no F/B badges or touch toggle; any click sets `paintColor`.
+ */
+const props = defineProps<{ singleSelect?: boolean }>()
+
 const editor = useEditorStore()
 
 /**
@@ -15,6 +21,10 @@ const target = ref<ColorSlot>('fg')
 function onSwatch(event: PointerEvent, index: number) {
   if (event.button !== 0 && event.button !== 2) return
   event.preventDefault()
+  if (props.singleSelect) {
+    editor.setPaintColor(index)
+    return
+  }
   editor.setColor(event.button === 2 ? 'bg' : target.value, index)
 }
 
@@ -50,14 +60,24 @@ function badgeClass(index: number): string {
       >
         <button
           type="button"
-          class="relative h-10 w-full cursor-pointer rounded-sm border border-ink-600 transition-[border-color] hover:border-ink-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink-300"
-          :class="{ 'bg-checker': !entry.hex }"
+          class="relative h-10 w-full cursor-pointer rounded-sm border transition-[border-color] hover:border-ink-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink-300"
+          :class="[
+            { 'bg-checker': !entry.hex },
+            singleSelect && entry.index === editor.paintColor
+              ? 'border-ink-100 outline-2 outline-offset-2 outline-ink-100'
+              : 'border-ink-600',
+          ]"
           :style="entry.hex ? { backgroundColor: entry.hex } : undefined"
-          :aria-label="`${entry.name} — left-click foreground, right-click background`"
+          :aria-label="
+            singleSelect
+              ? `${entry.name} — click to paint`
+              : `${entry.name} — left-click foreground, right-click background`
+          "
+          :aria-pressed="singleSelect ? entry.index === editor.paintColor : undefined"
           @pointerdown="onSwatch($event, entry.index)"
         >
           <span
-            v-if="badge(entry.index)"
+            v-if="!singleSelect && badge(entry.index)"
             class="font-display absolute inset-0 flex items-center justify-center text-sm tracking-wider"
             :class="badgeClass(entry.index)"
           >
@@ -67,8 +87,9 @@ function badgeClass(index: number): string {
       </AppTooltip>
     </div>
 
-    <!-- Touch fallback: choose what a plain tap sets -->
+    <!-- Touch fallback: choose what a plain tap sets (fg/bg modes only) -->
     <div
+      v-if="!singleSelect"
       class="flex flex-col gap-1"
       role="radiogroup"
       aria-label="Tap sets foreground or background"
