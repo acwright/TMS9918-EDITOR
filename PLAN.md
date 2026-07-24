@@ -8,9 +8,11 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Round 4 complete — released as `v1.2.1` (**Sample project refresh**:
-  richer Graphics I / II game screens, Phase 19). Round 3 was `v1.2.0` (Multicolor Mode);
-  Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
+- **Active phase:** Round 5 complete — released as `v1.3.0`: **label case selection** for
+  assembly export, a **screen pointer status bar**, and **share links** (compressed project
+  in the URL hash). See **§12** for scope, decisions, and Phases 20–23. Round 4 was `v1.2.1`
+  (sample refresh); Round 3 was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`;
+  Round 1 / Phases 1–10 was `v1.0.0`.
 - **Last updated:** 2026-07-24
 - **Round 4 (target `v1.2.1`)** is a small patch round replacing the lacklustre Graphics I
   and II samples with proper mock game screens that showcase each mode's colour model — a
@@ -743,3 +745,169 @@ Text ("Text Greeting") and Multicolor ("Vista") samples are unchanged.
 - [x] Committed, tagged `v1.2.1`, pushed to `origin/main`, GitHub release published.
 - **Exit criteria:** ✅ The Graphics I / II samples are proper game screens that demonstrate
   each colour model; README reflects them; `v1.2.1` tagged, pushed, and released.
+
+---
+
+## 12. Round 5 — Export Labels, Pointer Status & Share Links (target `v1.3.0`)
+
+Fifth round on top of `v1.2.1`. Three user-facing features plus the release pass, as
+Phases 20–23. Same conventions as every previous round: pure logic lives in `src/domain/`
+(or `src/utils/` when it wraps a browser API) with Vitest specs, all project mutations go
+through the command layer, chrome stays in the base components.
+
+### 12.1 Scope
+
+1. **Label case selection for assembly export** — the exporter's labels are hard-coded
+   snake_case (`char_patterns_1`, `screen_1`, `mc_names`). Add a case picker to the export
+   dialog covering snake_case, SCREAMING_SNAKE, camelCase and PascalCase; remember the
+   choice across sessions (Phase 20).
+2. **Screen pointer status** — a helper line under the screen canvas reporting the pointer's
+   cell coordinates plus the mode-relevant facts about the cell under it (Phase 21).
+3. **Share links** — a Share action in the project manager that compresses the project JSON
+   (gzip via `CompressionStream`) into a base64url URL hash (`#p=…`); opening such a link
+   offers to add the project (Phase 22).
+4. **README + release** — document all three, bump to `1.3.0`, tag `v1.3.0`, push, release
+   with title `v1.3.0` (Phase 23).
+
+### 12.2 Confirmed Design Decisions (Round 5)
+
+Settled with the user at Round 5 kickoff. Do not re-litigate without user input:
+
+13. **Label case is a remembered export preference, defaulting to `snake_case`.**
+    Default output is byte-identical to `v1.2.1` so existing exports don't change under
+    anyone; the picked case persists in localStorage (`tms9918-editor:prefs`) so a user who
+    works in PascalCase sets it once. Case applies to **assembly output only** (ca65 / Z80) —
+    BASIC emits `REM` descriptions rather than labels, and binary/PNG have no labels. The
+    canonical snake label on `ByteSegment` stays the single source of truth; case is a
+    render-time transform (`applyLabelCase`), so no segment builder changes.
+14. **Four cases, all valid assembler identifiers.** `snake_case`, `UPPER_SNAKE`
+    (ALL CAPS), `camelCase`, `PascalCase`. Kebab/Train case are deliberately absent — a `-`
+    is an operator in every supported assembler, so those would emit source that can't
+    assemble. Digits stay attached to their token (`char_patterns_1` → `CharPatterns1`).
+15. **Pointer status is a read-only status line, not a store concern.** `ScreenCanvas` emits
+    the hovered cell (`hover` event, `null` on leave/stroke end); `ScreenPanel` renders the
+    line. The formatting is a pure function (`src/domain/screenStatus.ts`) so it is unit
+    tested per mode. Fixed height and tabular figures so the toolbar/canvas never shift as
+    values change.
+16. **Status content is mode-aware.** Always: cell/block column & row and the cell's top-left
+    pixel coordinate. Text/Graphics I/II add the character code under the pointer in hex and
+    decimal; Graphics I adds its colour group (0–31); Graphics II adds the screen third
+    (= charset 1–3 when independent); Multicolor reports the palette index and colour name.
+    With no pointer over the canvas the line shows the screen's dimensions instead of blanks.
+17. **Share links carry the whole project, compressed, in the URL hash.**
+    `#p=<scheme><base64url>` where scheme `1` = gzip (`CompressionStream`) and `0` = plain —
+    the fallback keeps the feature working on any browser without the Compression Streams
+    API and makes the payload self-describing. Compact (not pretty) JSON is compressed. The
+    hash never touches a server (fragments aren't sent), so no backend is involved.
+18. **A share link is an offer, not an action.** Opening one lands on the project manager and
+    raises a dialog naming the project (name · mode · screen count) with **Add & Open** /
+    **Discard**. The hash is stripped at startup (`history.replaceState`) so a reload doesn't
+    re-prompt; a corrupt or truncated payload surfaces in the manager's existing error banner.
+    Import reuses `store.importProject`, which already assigns a fresh id on collision.
+19. **Share lives in the project-manager row only** (alongside download/duplicate/delete) —
+    not in the editor app bar or the screen toolbar. A link is always the *whole project*, so
+    the per-project row is the honest place for it; the screen toolbar's Export button stays
+    screen-scoped. The dialog shows the link, a Copy button, its length, and a warning when
+    it grows past the point where chat apps and unfurlers start truncating.
+
+### 12.3 Label case reference
+
+`ByteSegment.label` stays canonical snake_case; `applyLabelCase(label, case)` splits on `_`
+and rejoins:
+
+| Case id | Example (`char_patterns_1`) | Example (`mc_names`) |
+|---|---|---|
+| `snake` (default) | `char_patterns_1` | `mc_names` |
+| `upper` | `CHAR_PATTERNS_1` | `MC_NAMES` |
+| `camel` | `charPatterns1` | `mcNames` |
+| `pascal` | `CharPatterns1` | `McNames` |
+
+### 12.4 Share link reference
+
+```
+https://acwright.github.io/TMS9918-EDITOR/#p=1H4sIA…
+                                            ^ scheme: 1 = gzip, 0 = plain
+```
+
+- **Encode:** `JSON.stringify(project)` (compact) → UTF-8 bytes → `CompressionStream('gzip')`
+  → base64url (`+/=` → `-_`, padding stripped).
+- **Decode:** base64url → bytes → `DecompressionStream('gzip')` → UTF-8 →
+  `deserializeProject` (the existing validator, so a mangled link fails with the same
+  human-readable errors as a bad file upload).
+- **Size expectation:** Text / single-screen Graphics I projects land well under 2 KB of URL.
+  A maxed Graphics II project (3 charsets + per-row colour table + several screens) is the
+  worst case — tens to 100+ KB of JSON, but gzip crushes the repetition to single-digit KB.
+  Browsers handle megabyte hashes; the practical limit is link unfurlers, so the dialog warns
+  above **2,000 characters** and points at Download JSON for the big ones.
+
+### 12.5 Phases
+
+#### Phase 20 — Assembly Label Case ✅
+- [x] `src/domain/export/labels.ts`: `LabelCase`, `LABEL_CASES` (id + UI label + example),
+      `isLabelCase` and `applyLabelCase(label, case)` per §12.3 — a token split on `_` and
+      rejoin, so digits stay attached (`char_patterns_1` → `CharPatterns1`).
+- [x] `segmentsToAsm(segments, dialect, title, options?)` takes `AsmOptions { labelCase }`,
+      defaulting to `snake` — existing callers and specs are untouched.
+- [x] `src/persistence/preferences.ts`: localStorage-backed preferences record
+      (`tms9918-editor:prefs`) with `loadPreferences`/`savePreferences`; unreadable, corrupt,
+      throwing, or unavailable storage all fall back to defaults rather than breaking export.
+- [x] `ExportDialog.vue`: a **Labels** fieldset (existing segmented-button styling, monospace,
+      each button titled with its example) shown only for the ca65/Z80 formats; the live
+      preview reflects it and the choice is written on click.
+- [x] Vitest (**13 new**, suite 223 green): all four cases, single-token and `mc_names`
+      handling, an identifier-shape assertion for every case, the asm renderer honouring the
+      option, default-output equality, and preference round-trip/merge/corruption/throwing-store.
+- **Exit criteria:** ✅ ca65/Z80 export emits labels in the chosen case, default output is
+  byte-identical to `v1.2.1`, and the choice survives a reload.
+
+#### Phase 21 — Screen Pointer Status ✅
+- [x] `src/domain/screenStatus.ts`: `screenStatus(project, screen, cell | null)` → `{ active,
+      coords, pixel, details }` per Decision 16, plus `formatScreenStatus` for the one-line
+      rendering. Pure, no Vue. Out-of-bounds cells fall back to the idle form.
+- [x] `ScreenCanvas.vue`: emits `hover` (cell or `null`) from the existing pointer math, on
+      move as well as during a stroke; cleared on `pointerleave` and — for touch/pen, which
+      leave no pointer behind — at stroke end.
+- [x] `ScreenPanel.vue`: renders the status line under the canvas viewport (monospace,
+      tabular figures, fixed `h-4` so nothing shifts; dimmed in the idle state).
+- [x] Vitest (**8 new**, suite 231 green): idle form per mode, coordinates + pixel origin
+      (incl. Text Mode's 6px cells), Graphics I colour group, Graphics II third vs. set,
+      multicolor palette index + colour name, out-of-bounds, and the formatted line.
+- **Exit criteria:** ✅ moving the pointer over any mode's screen reports live coordinates and
+  the cell's mode-relevant data; the fixed-height line keeps the layout still.
+
+#### Phase 22 — Share Links ✅
+- [x] `src/domain/share.ts`: `encodeShare`/`decodeShare` per §12.4 (chunked base64url,
+      gzip through a `pump` helper over Compression Streams with the `0` plain-scheme
+      fallback, `ShareLinkError` for damaged payloads, `deserializeProject` for schema
+      errors), plus `shareUrl`, `readShareHash`, `capturePendingShare`, `takePendingShare`.
+      The writer-side rejection on a corrupt payload is swallowed so only the reader's
+      error is reported (an unhandled rejection otherwise).
+- [x] Startup capture in `App.vue`: reads `#p=` once, strips the hash via
+      `history.replaceState`, and routes to `/` when the link landed on another route.
+- [x] `src/components/projects/ShareDialog.vue`: rebuilds the link whenever it opens,
+      readonly select-on-focus field, Copy with a check-mark confirmation, character count,
+      and the >2,000-character truncation warning.
+- [x] Shared-link flow in `ProjectManagerView.vue`: decodes the pending payload on mount and
+      raises a **Shared Project** dialog (name · mode · screen count) with **Add & Open** /
+      **Discard**; decode failures go to the existing error banner.
+- [x] **Share Link** button in each project row (between Duplicate and Download). Store gained
+      `shareLink(id)` (load → encode → URL) and `adopt(project)` — the collision-safe tail
+      extracted from `importProject`, now shared by uploads and share links.
+- [x] Vitest (**14 new**, suite 245 green): round-trip per mode, a heavy Graphics II project
+      compressing past 10× and re-decoding, hash parsing/URL shape, rejection of missing,
+      unknown-scheme and truncated payloads, the plain-scheme path, schema errors surfacing
+      as `ProjectValidationError`, plus store specs for `shareLink` and `adopt`.
+- **Exit criteria:** ✅ a link decodes back to an identical project and is offered for adoption
+  with one confirmation; a mangled link fails with a clear message instead of a blank app.
+  *(Verified via the domain/store specs, a production build, and a Vite dev-transform smoke of
+  every changed module; no in-browser pass — no browser driver in this environment.)*
+
+#### Phase 23 — README, Versioning & Release ✅
+- [x] README: **Labels** paragraph in the Export section, a new **Sharing** section, pointer
+      status and share links in the feature list, intro refreshed.
+- [x] PLAN Current Status + checkboxes updated.
+- [x] Bumped `package.json` to `1.3.0` (surfaces via `__APP_VERSION__` → manager footer);
+      suite **245 green**, type-check + lint + `VITE_BASE=/TMS9918-EDITOR/` build clean.
+- [x] Committed, tagged `v1.3.0`, pushed to `origin/main`, GitHub release published with the
+      title `v1.3.0`.
+- **Exit criteria:** ✅ README reflects Round 5; `v1.3.0` tagged, pushed, and released.

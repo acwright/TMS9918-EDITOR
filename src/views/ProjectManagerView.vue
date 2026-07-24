@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { Copy, Download, Github, Pencil, Plus, Trash2, Upload, X } from 'lucide-vue-next'
+import { Copy, Download, Github, Pencil, Plus, Share2, Trash2, Upload, X } from 'lucide-vue-next'
 import AppButton from '@/components/base/AppButton.vue'
 import AppDialog from '@/components/base/AppDialog.vue'
 import AppTextInput from '@/components/base/AppTextInput.vue'
 import NewProjectDialog from '@/components/projects/NewProjectDialog.vue'
+import ShareDialog from '@/components/projects/ShareDialog.vue'
 import { MODES } from '@/domain/modes'
 import type { CreateProjectOptions } from '@/domain/factory'
+import type { Project } from '@/domain/types'
+import { ShareLinkError, decodeShare, takePendingShare } from '@/domain/share'
 import type { ProjectSummary } from '@/persistence/repository'
 import { SAMPLES, type Sample } from '@/samples'
 import { useProjectsStore } from '@/stores/projects'
@@ -108,6 +111,39 @@ async function onUpload(event: Event) {
   store.importProject(await file.text())
 }
 
+// --- Share ---
+const shareTarget = ref<ProjectSummary | null>(null)
+const showShare = ref(false)
+
+function startShare(summary: ProjectSummary) {
+  shareTarget.value = summary
+  showShare.value = true
+}
+
+// A link opened in this browser: decode it, then offer to add it (Decision 18)
+const sharedProject = ref<Project | null>(null)
+
+onMounted(async () => {
+  const payload = takePendingShare()
+  if (!payload) return
+  try {
+    sharedProject.value = await decodeShare(payload)
+  } catch (error) {
+    store.lastError =
+      error instanceof ShareLinkError
+        ? error.message
+        : `That share link could not be opened: ${(error as Error).message}`
+  }
+})
+
+function acceptShared() {
+  const project = sharedProject.value
+  if (!project) return
+  sharedProject.value = null
+  const added = store.adopt(project)
+  if (added) openProject(added.id)
+}
+
 // --- Formatting ---
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -181,6 +217,9 @@ function formatDate(iso: string): string {
           <AppButton label="Duplicate" @click="store.duplicate(summary.id)">
             <Copy class="size-4" />
           </AppButton>
+          <AppButton label="Share Link" @click="startShare(summary)">
+            <Share2 class="size-4" />
+          </AppButton>
           <AppButton label="Download" @click="download(summary.id)">
             <Download class="size-4" />
           </AppButton>
@@ -232,6 +271,34 @@ function formatDate(iso: string): string {
     </footer>
 
     <NewProjectDialog v-model="showNewProject" @create="onCreate" />
+
+    <ShareDialog
+      v-model="showShare"
+      :project-id="shareTarget?.id ?? null"
+      :project-name="shareTarget?.name ?? ''"
+    />
+
+    <AppDialog
+      :model-value="sharedProject !== null"
+      title="Shared Project"
+      @update:model-value="sharedProject = null"
+    >
+      <p class="text-sm text-ink-300">
+        Someone shared <strong class="text-ink-100">{{ sharedProject?.name }}</strong> with you.
+      </p>
+      <p class="mt-1 text-xs text-ink-500">
+        {{ sharedProject ? MODES[sharedProject.type].label : '' }} ·
+        {{ sharedProject?.screens.length }}
+        {{ sharedProject?.screens.length === 1 ? 'screen' : 'screens' }} · adding it saves a copy
+        to this browser.
+      </p>
+      <template #footer>
+        <AppButton label="Discard" show-label @click="sharedProject = null" />
+        <AppButton label="Add & Open" show-label @click="acceptShared">
+          <Plus class="size-4" />
+        </AppButton>
+      </template>
+    </AppDialog>
 
     <AppDialog
       :model-value="renameTarget !== null"

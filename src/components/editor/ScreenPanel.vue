@@ -30,6 +30,7 @@ import ExportDialog from './ExportDialog.vue'
 import ScreenCanvas from './ScreenCanvas.vue'
 import * as screenOps from '@/domain/screenOps'
 import { MODES } from '@/domain/modes'
+import { formatScreenStatus, screenStatus, type PointerCell } from '@/domain/screenStatus'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
 import { modLabel, shiftModLabel } from '@/utils/platform'
@@ -105,6 +106,16 @@ function confirmDelete() {
 }
 
 const pageLabel = computed(() => `${editor.selectedScreen + 1}/${editor.screenCount}`)
+
+// --- Pointer status (PLAN.md §12 Decisions 15–16) ---
+const hoverCell = ref<PointerCell | null>(null)
+
+const status = computed(() => {
+  const project = projects.current
+  if (!project) return null
+  return screenStatus(project, editor.currentScreen, hoverCell.value)
+})
+const statusText = computed(() => (status.value ? formatScreenStatus(status.value) : ''))
 </script>
 
 <template>
@@ -270,9 +281,22 @@ const pageLabel = computed(() => `${editor.selectedScreen + 1}/${editor.screenCo
            overflows, so the left/top edges stay scrollable (plain center
            pushes overflow off the unreachable start side) -->
       <div class="flex min-h-full min-w-full items-center-safe justify-center-safe p-2">
-        <ScreenCanvas :scale="editor.screenScale" :show-grid="editor.showGrid" />
+        <ScreenCanvas
+          :scale="editor.screenScale"
+          :show-grid="editor.showGrid"
+          @hover="hoverCell = $event"
+        />
       </div>
     </div>
+
+    <!-- Pointer status: fixed height + tabular figures so nothing shifts as it updates -->
+    <p
+      class="h-4 shrink-0 text-center font-mono text-xs [font-variant-numeric:tabular-nums]"
+      :class="status?.active ? 'text-ink-300' : 'text-ink-600'"
+      aria-live="off"
+    >
+      {{ statusText }}
+    </p>
 
     <ExportDialog v-model="showExport" scope="screen" />
 

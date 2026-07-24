@@ -15,6 +15,7 @@ import {
   deserializeProject,
   serializeProject,
 } from '@/domain/serialization'
+import { encodeShare, shareUrl } from '@/domain/share'
 import { StorageQuotaError, createRepository, type ProjectSummary } from '@/persistence/repository'
 
 export type SaveState = 'saved' | 'saving' | 'unsaved'
@@ -124,12 +125,32 @@ export const useProjectsStore = defineStore('projects', () => {
           : 'Import failed: unreadable file.'
       return null
     }
+    return adopt(project)
+  }
+
+  /** Take ownership of an already-validated project (upload, share link). */
+  function adopt(project: Project): Project | null {
     if (repository.load(project.id)) {
       project.id = crypto.randomUUID()
     }
     if (!persist(project)) return null
     refresh()
     return project
+  }
+
+  /** Shareable URL carrying the whole project. Null (with lastError) on failure. */
+  async function shareLink(id: string): Promise<string | null> {
+    const project = current.value?.id === id ? current.value : repository.load(id)
+    if (!project) {
+      lastError.value = 'That project could not be loaded.'
+      return null
+    }
+    try {
+      return shareUrl(await encodeShare(project))
+    } catch {
+      lastError.value = 'Creating a share link failed.'
+      return null
+    }
   }
 
   /** Pretty-printed download payload for a project. */
@@ -189,6 +210,8 @@ export const useProjectsStore = defineStore('projects', () => {
     duplicate,
     remove,
     importProject,
+    adopt,
+    shareLink,
     exportProject,
     markDirty,
     saveCurrent,

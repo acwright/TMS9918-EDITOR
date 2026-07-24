@@ -7,6 +7,7 @@
  */
 
 import type { ByteSegment } from './tables'
+import { applyLabelCase, DEFAULT_LABEL_CASE, type LabelCase } from './labels'
 
 export type AsmDialectId = 'ca65' | 'z80'
 
@@ -28,16 +29,22 @@ function hex(byte: number): string {
   return '$' + byte.toString(16).toUpperCase().padStart(2, '0')
 }
 
+export interface AsmOptions {
+  /** Casing applied to the segments' canonical snake_case labels. */
+  labelCase: LabelCase
+}
+
 /** Render labelled byte segments as assembler source for `dialect`. */
 export function segmentsToAsm(
   segments: ByteSegment[],
   dialect: AsmDialect,
   title: string,
+  options: AsmOptions = { labelCase: DEFAULT_LABEL_CASE },
 ): string {
   const lines: string[] = [`; ${title}`, `; ${dialect.label} — exported from TMS9918 Editor`, '']
   for (const seg of segments) {
     lines.push(`; ${seg.description} — ${seg.bytes.length} bytes`)
-    lines.push(`${seg.label}:`)
+    lines.push(`${applyLabelCase(seg.label, options.labelCase)}:`)
     for (let i = 0; i < seg.bytes.length; i += seg.perLine) {
       const row = seg.bytes.slice(i, i + seg.perLine).map(hex).join(', ')
       lines.push(`${INDENT}${dialect.directive} ${row}`)

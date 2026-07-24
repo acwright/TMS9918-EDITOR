@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { serializeProject } from '@/domain/serialization'
 import { createProject } from '@/domain/factory'
+import { decodeShare, readShareHash } from '@/domain/share'
 import { AUTOSAVE_DELAY_MS, useProjectsStore } from '../projects'
 
 describe('projects store', () => {
@@ -93,6 +94,32 @@ describe('projects store', () => {
       const invalid = { ...createProject({ name: 'X', type: 'text' }), version: 9 }
       expect(store.importProject(JSON.stringify(invalid))).toBeNull()
       expect(store.lastError).toContain('Unsupported project version')
+    })
+  })
+
+  describe('share links', () => {
+    it('builds a link that decodes back to the same project', async () => {
+      const store = useProjectsStore()
+      const project = store.create({ name: 'Shared', type: 'graphics1' })!
+      const url = (await store.shareLink(project.id))!
+      expect(url).toContain('#p=')
+
+      const decoded = await decodeShare(readShareHash(new URL(url).hash)!)
+      expect(decoded).toEqual(project)
+    })
+
+    it('reports a missing project instead of building a link', async () => {
+      const store = useProjectsStore()
+      expect(await store.shareLink('missing')).toBeNull()
+      expect(store.lastError).toContain('could not be loaded')
+    })
+
+    it('adopts a shared project, keeping the local copy when ids collide', () => {
+      const store = useProjectsStore()
+      const project = store.create({ name: 'Alpha', type: 'text' })!
+      const adopted = store.adopt(structuredClone(project))!
+      expect(adopted.id).not.toBe(project.id)
+      expect(store.summaries).toHaveLength(2)
     })
   })
 

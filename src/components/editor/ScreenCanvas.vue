@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, useTemplateRef, watchEffect } from 'vue'
 import { MODES } from '@/domain/modes'
+import type { PointerCell } from '@/domain/screenStatus'
 import { renderScreen } from '@/utils/screenRender'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
@@ -10,6 +11,9 @@ defineProps<{
   scale: number
   showGrid: boolean
 }>()
+
+/** The cell under the pointer, or null once it leaves — drives the status bar. */
+const emit = defineEmits<{ hover: [PointerCell | null] }>()
 
 const projects = useProjectsStore()
 const editor = useEditorStore()
@@ -49,10 +53,15 @@ function cellAt(event: PointerEvent): { x: number; y: number } | null {
   return { x, y }
 }
 
+/** Touch/pen leave no pointer behind, so their strokes end the hover readout. */
+let lastPointerType = 'mouse'
+
 function onPointerDown(event: PointerEvent) {
   if (event.button !== 0 && event.button !== 2) return
   event.preventDefault()
+  lastPointerType = event.pointerType
   const cell = cellAt(event)
+  emit('hover', cell)
   if (!cell) return
   // Capture so touch drags keep reporting to the canvas even off its bounds
   ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
@@ -64,9 +73,10 @@ function onPointerDown(event: PointerEvent) {
 }
 
 function onPointerMove(event: PointerEvent) {
-  if (painting.value === null) return
+  lastPointerType = event.pointerType
   const cell = cellAt(event)
-  if (!cell) return
+  emit('hover', cell)
+  if (painting.value === null || !cell) return
   const index = cell.y * mode.value.columns + cell.x
   if (index === lastCell) return
   lastCell = index
@@ -78,6 +88,7 @@ function endStroke() {
   painting.value = null
   lastCell = -1
   editor.endStroke()
+  if (lastPointerType !== 'mouse') emit('hover', null)
 }
 
 // End the stroke even when the pointer is released outside the canvas
@@ -107,6 +118,7 @@ const gridStyle = computed(() => ({
       "
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
+      @pointerleave="emit('hover', null)"
       @contextmenu.prevent
     />
     <div v-if="showGrid" class="pointer-events-none absolute inset-0" :style="gridStyle" />

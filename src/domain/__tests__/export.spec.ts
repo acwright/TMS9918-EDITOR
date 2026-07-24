@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { createProject } from '../factory'
 import {
   ASM_DIALECTS,
+  LABEL_CASES,
+  applyLabelCase,
   charsetSegments,
   colorTableBytes,
   multicolorScreenSegments,
@@ -148,6 +150,42 @@ describe('segmentsToAsm', () => {
   it('renders Z80 db lines', () => {
     const out = segmentsToAsm(SAMPLE, ASM_DIALECTS.z80, 'X')
     expect(out).toContain('    db $00, $3C, $42, $FF')
+  })
+
+  it('recases labels when asked, leaving the data untouched', () => {
+    const out = segmentsToAsm(SAMPLE, ASM_DIALECTS.ca65, 'X', { labelCase: 'pascal' })
+    expect(out).toContain('CharPatterns:')
+    expect(out).not.toContain('char_patterns:')
+    expect(out).toContain('    .byte $00, $3C, $42, $FF')
+  })
+
+  it('defaults to snake_case so existing output is unchanged', () => {
+    expect(segmentsToAsm(SAMPLE, ASM_DIALECTS.ca65, 'X')).toBe(
+      segmentsToAsm(SAMPLE, ASM_DIALECTS.ca65, 'X', { labelCase: 'snake' }),
+    )
+  })
+})
+
+describe('applyLabelCase', () => {
+  it.each([
+    ['snake', 'char_patterns_1'],
+    ['upper', 'CHAR_PATTERNS_1'],
+    ['camel', 'charPatterns1'],
+    ['pascal', 'CharPatterns1'],
+  ] as const)('renders %s', (labelCase, expected) => {
+    expect(applyLabelCase('char_patterns_1', labelCase)).toBe(expected)
+  })
+
+  it('handles single-token labels', () => {
+    expect(applyLabelCase('screen', 'pascal')).toBe('Screen')
+    expect(applyLabelCase('screen', 'camel')).toBe('screen')
+    expect(applyLabelCase('mc_names', 'camel')).toBe('mcNames')
+  })
+
+  it('never emits a character an assembler would read as an operator', () => {
+    for (const { id } of LABEL_CASES) {
+      expect(applyLabelCase('screen_1', id)).toMatch(/^[A-Za-z_][A-Za-z0-9_]*$/)
+    }
   })
 })
 

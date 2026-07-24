@@ -9,7 +9,8 @@ Design 8×8 character patterns, colour them with the TMS9918's 15-colour palette
 them out across one or more screens, and export the result as 6502 (`ca65`) or Z80
 assembly, BASIC `DATA`, raw binary, or PNG. A dedicated **Multicolor** mode swaps glyph
 editing for a 64×48 grid of chunky 4×4 colour blocks. Everything runs client-side; projects
-are saved in your browser and can be downloaded or shared as JSON.
+are saved in your browser, downloadable as JSON, and shareable as a single self-contained
+link.
 
 ![Editor screenshot](docs/screenshot.png)
 
@@ -30,14 +31,18 @@ are saved in your browser and can be downloaded or shared as JSON.
 - **Colour picker** (2×8 palette, transparent as checkerboard) with F/B foreground/background
   targeting, Graphics I group highlighting, and Graphics II per-row colour chips.
 - **Screen editor** — paint characters onto a scalable (1×–8×) grid, with per-screen
-  transforms, a toggleable grid overlay, and multiple named screens per project.
+  transforms, a toggleable grid overlay, multiple named screens per project, and a live
+  pointer readout (cell coordinates, pixel origin, and the character or colour under the
+  cursor).
 - **Multicolor editor** — a stripped-down mode with no character or character-set panels:
   pick a colour and paint solid 4×4 blocks straight onto a 64×48 canvas, with a backdrop
   colour shown behind transparent blocks.
 - **Character byte box** — view the selected glyph as comma-separated **hex** or **decimal**,
   copy it, or paste either form (or a `.byte` / `db` / `DATA` line) back in to set the character.
 - **Export** to 6502 (`ca65`) or Z80 assembly, BASIC `DATA`, raw binary, or PNG — with separate
-  buttons for the character set and for screens (see [Export](#export)).
+  buttons for the character set and for screens, and your choice of label casing
+  (see [Export](#export)).
+- **Share links** — hand someone the whole project as a URL (see [Sharing](#sharing)).
 - **Project-wide undo/redo**, debounced autosave to localStorage, and JSON import/export.
 - **Keyboard-driven** (see below) and **touch-friendly** — the layout collapses to
   Character / Screen tabs on tablet-sized viewports.
@@ -74,6 +79,11 @@ Formats:
 | **Binary** | Raw `.bin` of the selected tables. |
 | **PNG** | The screen, or a 16×16 sheet of the character set, at a selectable 1×–8× scale. |
 
+Assembly exports (6502 and Z80) also offer a **Labels** picker — `snake_case` (the default),
+`ALL CAPS`, `camelCase`, or `PascalCase` — so generated labels match the convention of the
+surrounding source. The choice is remembered between sessions. Only cases that are valid
+assembler identifiers are offered; kebab-case would emit a `-` operator.
+
 Colour bytes pack as `(fg << 4) | bg`, matching the TMS9918 colour table. Text mode emits one
 colour byte, Graphics I emits 32 (one per 8-character group), Graphics II emits 8 per character.
 
@@ -87,6 +97,25 @@ tables, so use the **Binary** export to move data between them; there's no nativ
 format.
 
 Single characters can also be copied or pasted through the character byte box (hex or decimal).
+
+## Sharing
+
+The **Share Link** button on each project in the project manager produces a URL that carries
+the entire project — character sets, colours, and every screen — gzip-compressed into the
+URL's fragment:
+
+```
+https://acwright.github.io/TMS9918-EDITOR/#p=1H4sIA…
+```
+
+Nothing is uploaded: URL fragments are never sent to a server, so the link *is* the project.
+Opening one offers to add a copy to that browser's project list; the original is untouched.
+
+Compression keeps typical projects to a few hundred characters up to a couple of KB. A maxed-out
+Graphics II project (three charsets, a per-row colour table, several screens) still lands in the
+single-digit KB range, but the dialog warns once a link passes ~2,000 characters, because some
+chat apps and link previewers truncate long URLs — send the downloaded `.tms9918.json` file in
+that case.
 
 ## Keyboard Shortcuts
 

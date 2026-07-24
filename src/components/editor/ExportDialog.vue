@@ -6,13 +6,16 @@ import AppDialog from '@/components/base/AppDialog.vue'
 import { MODES, charsetCount } from '@/domain/modes'
 import {
   ASM_DIALECTS,
+  LABEL_CASES,
   charsetSegments,
   screenSegments,
   segmentsToAsm,
   segmentsToBasic,
   segmentsToBinary,
   type ByteSegment,
+  type LabelCase,
 } from '@/domain/export'
+import { loadPreferences, savePreferences } from '@/persistence/preferences'
 import {
   charsetSheetToCanvas,
   screenToCanvas,
@@ -48,6 +51,15 @@ const PNG_SCALES = [1, 2, 4, 6, 8]
 const format = ref<FormatId>('ca65')
 const pngScale = ref(4)
 const isText = computed(() => format.value === 'ca65' || format.value === 'z80' || format.value === 'basic')
+const isAsm = computed(() => format.value === 'ca65' || format.value === 'z80')
+
+// --- Assembly label case (remembered across sessions) ---
+const labelCase = ref<LabelCase>(loadPreferences().labelCase)
+
+function setLabelCase(value: LabelCase) {
+  labelCase.value = value
+  savePreferences({ labelCase: value })
+}
 
 // --- Charset scope options ---
 const setChoice = ref<'all' | number>('all')
@@ -96,8 +108,13 @@ const segments = computed<ByteSegment[]>(() => {
 const byteCount = computed(() => segments.value.reduce((sum, seg) => sum + seg.bytes.length, 0))
 
 const textOutput = computed(() => {
-  if (format.value === 'ca65') return segmentsToAsm(segments.value, ASM_DIALECTS.ca65, title.value)
-  if (format.value === 'z80') return segmentsToAsm(segments.value, ASM_DIALECTS.z80, title.value)
+  const asm = { labelCase: labelCase.value }
+  if (format.value === 'ca65') {
+    return segmentsToAsm(segments.value, ASM_DIALECTS.ca65, title.value, asm)
+  }
+  if (format.value === 'z80') {
+    return segmentsToAsm(segments.value, ASM_DIALECTS.z80, title.value, asm)
+  }
   if (format.value === 'basic') {
     return segmentsToBasic(segments.value, { startLine: startLine.value, step: step.value }, title.value)
   }
@@ -283,6 +300,23 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
             class="h-9 w-28 rounded-sm border border-ink-700 bg-ink-850 px-2.5 text-sm text-ink-100 focus:border-ink-300 focus:outline-none"
           />
         </label>
+      </fieldset>
+
+      <!-- Assembly label case -->
+      <fieldset v-if="isAsm" class="flex flex-col gap-1.5">
+        <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">Labels</legend>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="c in LABEL_CASES"
+            :key="c.id"
+            type="button"
+            :title="c.example"
+            :class="[segButton, 'font-mono tracking-normal', labelCase === c.id ? segActive : segIdle]"
+            @click="setLabelCase(c.id)"
+          >
+            {{ c.label }}
+          </button>
+        </div>
       </fieldset>
 
       <!-- Preview / summary -->
