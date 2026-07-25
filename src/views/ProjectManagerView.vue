@@ -243,7 +243,14 @@ function formatDate(iso: string): string {
 
     <section class="mt-8">
       <h2 class="font-display mb-2 text-sm tracking-wider text-ink-400">Load a Sample</h2>
-      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- One row at lg+, however many samples there are: hard-coding the column
+           count orphaned the fifth card onto its own row when Sprite mode landed.
+           Cards stretch to the tallest description, so they stay level. -->
+      <div
+        class="grid gap-2 sm:grid-cols-2 lg:grid-cols-[repeat(var(--sample-cols),minmax(0,1fr))]"
+        :style="{ '--sample-cols': SAMPLES.length }"
+        aria-label="Sample projects"
+      >
         <button
           v-for="sample in SAMPLES"
           :key="sample.id"

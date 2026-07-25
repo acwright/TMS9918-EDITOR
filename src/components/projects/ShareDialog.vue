@@ -13,6 +13,10 @@ const store = useProjectsStore()
 
 const link = ref('')
 const building = ref(false)
+// Declared before the watcher below: that watcher is `immediate`, so it runs
+// during setup and would hit the temporal dead zone if this sat under it.
+const copied = ref(false)
+let copyTimer: ReturnType<typeof setTimeout> | undefined
 
 // Rebuild whenever the dialog opens (the project may have changed since last time)
 watch(
@@ -28,9 +32,6 @@ watch(
   },
   { immediate: true },
 )
-
-const copied = ref(false)
-let copyTimer: ReturnType<typeof setTimeout> | undefined
 
 async function copy() {
   if (!link.value) return

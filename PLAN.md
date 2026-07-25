@@ -11,7 +11,10 @@ This document is the source of truth across agent sessions. **Update the checkbo
 - **Active phase:** Round 7 complete — released as `v1.4.0`: a **Sprite editor mode**, a fifth
   project type whose pattern table *is* the hardware Sprite Pattern Table, with an 8×8 / 16×16
   sprite editor, per-sprite colour, named frame **animations** with a live preview, and sprite
-  export. See **§14** and Phases 25–29. Suite 406 green.
+  export. See **§14** and Phases 25–29.
+- **Post-release fixes** (on `main`, suite 409 green — see §14.9):
+  the sample grid orphaned its fifth card, and `ShareDialog` threw a temporal-dead-zone
+  `ReferenceError` on every manager visit.
 - Round 6 was `v1.3.1` (project manager layout, **§13** / Phase 24); Round 5 was `v1.3.0`
   (label case, pointer status, share links); Round 4 was `v1.2.1` (sample refresh); Round 3
   was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
@@ -1505,3 +1508,31 @@ every place that enumerates modes — check each of these during Phase 25/26 and
       GitHub release (<https://github.com/acwright/TMS9918-EDITOR/releases/tag/v1.4.0>).
 - **Exit criteria:** ✅ README reflects Round 7, the sprite "Astro Ace" sample ships with
   three working animations, and `v1.4.0` is tagged, pushed, and released.
+
+### 14.9 Post-release fixes (on `main`, after `v1.4.0`)
+
+Found by the user smoke-testing the released build, plus one latent bug the resulting
+regression test uncovered. Both are on `main`; whether they warrant a `v1.4.1` tag is open.
+
+1. **The sample grid orphaned its fifth card.** Round 6 Decision 22 set the grid to
+   `lg:grid-cols-4` for exactly four samples, so Astro Ace wrapped onto a row of its own.
+   Rather than hard-code 5 — which a sixth sample would break in the same way — the column
+   count is now driven by the data: `--sample-cols` is bound from `SAMPLES.length` and
+   consumed by `lg:grid-cols-[repeat(var(--sample-cols),minmax(0,1fr))]`. Cards stretch to
+   the tallest description, so they stay level. Verified the rule is actually emitted inside
+   the `lg` media query in the built CSS, not silently dropped by Tailwind.
+2. **`ShareDialog` threw on every manager visit.** Its `{ immediate: true }` watcher runs
+   during setup and reads `copied`, which was declared 14 lines *below* it — a temporal-dead-
+   zone `ReferenceError`, thrown on every mount since `v1.3.0` (Phase 22). The dialog is
+   rendered unconditionally, so it fired on every visit to the project manager. Impact was
+   limited to a logged error: the immediate run would have returned early anyway, and later
+   runs happen after setup completes, so sharing itself always worked. Fixed by hoisting the
+   declaration above the watcher.
+
+**Testing note.** The first two attempts at a regression test for (2) *passed against the
+broken code*: the watcher is `async`, so the failure is a rejected promise that settles a
+tick after `mount()` returns — after a `console.error` spy had been restored, and after the
+assertion ran. The working version installs an `app.config.errorHandler` via VTU's
+`global.config` and awaits `flushPromises()` before asserting. It was confirmed to fail
+against the un-hoisted code and pass against the fix. A new `ProjectManagerView` spec also
+covers the sample-grid column binding.
