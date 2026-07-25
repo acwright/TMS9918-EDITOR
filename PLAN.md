@@ -8,13 +8,10 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** **Round 7 (target `v1.4.0`)** — a **Sprite editor mode**: a fifth project
-  type whose pattern table *is* the hardware Sprite Pattern Table, an 8×8 / 16×16 sprite
-  editor, per-sprite colour, and named frame **animations** with a live preview. See **§14**
-  for scope, decisions, the sprite hardware reference, and Phases 25–29.
-  **Phases 25–29 complete** — suite 406 green, version bumped to `1.4.0`. All that remains
-  is the release itself: commit, tag `v1.4.0`, push to `origin/main`, publish the GitHub
-  release.
+- **Active phase:** Round 7 complete — released as `v1.4.0`: a **Sprite editor mode**, a fifth
+  project type whose pattern table *is* the hardware Sprite Pattern Table, with an 8×8 / 16×16
+  sprite editor, per-sprite colour, named frame **animations** with a live preview, and sprite
+  export. See **§14** and Phases 25–29. Suite 406 green.
 - Round 6 was `v1.3.1` (project manager layout, **§13** / Phase 24); Round 5 was `v1.3.0`
   (label case, pointer status, share links); Round 4 was `v1.2.1` (sample refresh); Round 3
   was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
@@ -1504,7 +1501,7 @@ every place that enumerates modes — check each of these during Phase 25/26 and
 - [x] PLAN Current Status + all Round 7 checkboxes updated; §14.7 checklist fully ticked.
 - [x] Bumped `package.json` to `1.4.0` (surfaces via `__APP_VERSION__` → manager footer);
       suite **406 green**; type-check + lint + `VITE_BASE=/TMS9918-EDITOR/` build clean.
-- [ ] Commit, tag `v1.4.0`, push to `origin/main`, publish the GitHub release with the title
-      `v1.4.0` and a summary of the round.
-- **Exit criteria:** README reflects Round 7, the sprite sample ships with working
-  animations, and `v1.4.0` is tagged, pushed, and released.
+- [x] Committed (`382a561`), tagged `v1.4.0`, pushed to `origin/main`, and published the
+      GitHub release (<https://github.com/acwright/TMS9918-EDITOR/releases/tag/v1.4.0>).
+- **Exit criteria:** ✅ README reflects Round 7, the sprite "Astro Ace" sample ships with
+  three working animations, and `v1.4.0` is tagged, pushed, and released.
