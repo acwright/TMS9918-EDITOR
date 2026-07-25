@@ -12,9 +12,9 @@ This document is the source of truth across agent sessions. **Update the checkbo
   project type whose pattern table *is* the hardware Sprite Pattern Table, with an 8×8 / 16×16
   sprite editor, per-sprite colour, named frame **animations** with a live preview, and sprite
   export. See **§14** and Phases 25–29.
-- **Post-release fixes** (on `main`, suite 409 green — see §14.9):
-  the sample grid orphaned its fifth card, and `ShareDialog` threw a temporal-dead-zone
-  `ReferenceError` on every manager visit.
+- **`v1.4.1`** is a patch on top of it (suite 409 green — see §14.9): the sample grid
+  orphaned its fifth card, and `ShareDialog` threw a temporal-dead-zone `ReferenceError` on
+  every manager visit.
 - Round 6 was `v1.3.1` (project manager layout, **§13** / Phase 24); Round 5 was `v1.3.0`
   (label case, pointer status, share links); Round 4 was `v1.2.1` (sample refresh); Round 3
   was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
@@ -1509,10 +1509,10 @@ every place that enumerates modes — check each of these during Phase 25/26 and
 - **Exit criteria:** ✅ README reflects Round 7, the sprite "Astro Ace" sample ships with
   three working animations, and `v1.4.0` is tagged, pushed, and released.
 
-### 14.9 Post-release fixes (on `main`, after `v1.4.0`)
+### 14.9 Post-release fixes (`v1.4.1`)
 
 Found by the user smoke-testing the released build, plus one latent bug the resulting
-regression test uncovered. Both are on `main`; whether they warrant a `v1.4.1` tag is open.
+regression test uncovered.
 
 1. **The sample grid orphaned its fifth card.** Round 6 Decision 22 set the grid to
    `lg:grid-cols-4` for exactly four samples, so Astro Ace wrapped onto a row of its own.
