@@ -9,6 +9,7 @@ import {
   LABEL_CASES,
   charsetSegments,
   screenSegments,
+  spriteSegments,
   segmentsToAsm,
   segmentsToBasic,
   segmentsToBinary,
@@ -21,11 +22,17 @@ import {
   screenToCanvas,
   CHARSET_SHEET_COLS,
 } from '@/utils/screenRender'
+import {
+  SPRITE_SHEET_SIZE,
+  filmstripToCanvas,
+  spriteSheetToCanvas,
+} from '@/utils/spriteRender'
 import { downloadBytes, downloadCanvasPng, downloadText } from '@/utils/download'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import type { Project } from '@/domain/types'
 
-const props = defineProps<{ scope: 'screen' | 'charset' }>()
+const props = defineProps<{ scope: 'screen' | 'charset' | 'sprite' }>()
 const open = defineModel<boolean>({ required: true })
 
 const projects = useProjectsStore()
@@ -84,6 +91,21 @@ const selectedScreens = computed(() =>
     : [editor.selectedScreen],
 )
 
+// --- Sprite scope options ---
+const spriteTables = reactive({ patterns: true, colors: true, animations: true })
+const animationChoice = ref<'current' | 'all'>('all')
+const selectedAnimations = computed(() => {
+  if (!spriteTables.animations) return []
+  return animationChoice.value === 'all'
+    ? (projects.current?.animations ?? []).map((_, i) => i)
+    : [editor.selectedAnimation]
+})
+/** PNG shape: the whole slot sheet, or the current animation as a film strip. */
+const spritePng = ref<'sheet' | 'filmstrip'>('sheet')
+/** Stage side for a filmstrip cell — 32 fits 16×16 at MAG 2 (PLAN.md §14.3). */
+const FILMSTRIP_STAGE = 32
+const filmstripFrames = computed(() => editor.currentAnimation?.frames ?? [])
+
 // --- BASIC options ---
 const startLine = ref(1000)
 const step = ref(10)
@@ -96,13 +118,21 @@ const title = computed(() => {
 const segments = computed<ByteSegment[]>(() => {
   const project = projects.current
   if (!project) return []
-  return props.scope === 'charset'
-    ? charsetSegments(project, {
-        sets: selectedSets.value,
-        patterns: tables.patterns,
-        colors: tables.colors,
-      })
-    : screenSegments(project, selectedScreens.value)
+  if (props.scope === 'charset') {
+    return charsetSegments(project, {
+      sets: selectedSets.value,
+      patterns: tables.patterns,
+      colors: tables.colors,
+    })
+  }
+  if (props.scope === 'sprite') {
+    return spriteSegments(project, {
+      patterns: spriteTables.patterns,
+      colors: spriteTables.colors,
+      animations: selectedAnimations.value,
+    })
+  }
+  return screenSegments(project, selectedScreens.value)
 })
 
 const byteCount = computed(() => segments.value.reduce((sum, seg) => sum + seg.bytes.length, 0))
@@ -128,12 +158,27 @@ const pngDimensions = computed(() => {
     const size = CHARSET_SHEET_COLS * 8 * pngScale.value
     return `${size} × ${size} px`
   }
+  if (props.scope === 'sprite') {
+    if (spritePng.value === 'sheet') {
+      const size = SPRITE_SHEET_SIZE * pngScale.value
+      return `${size} × ${size} px`
+    }
+    const cells = Math.max(1, filmstripFrames.value.length)
+    return `${cells * FILMSTRIP_STAGE * pngScale.value} × ${FILMSTRIP_STAGE * pngScale.value} px`
+  }
   const { columns, rows, cellWidth, cellHeight } = MODES[project.type]
   return `${columns * cellWidth * pngScale.value} × ${rows * cellHeight * pngScale.value} px`
 })
 
 const hasData = computed(() => {
-  if (format.value === 'png') return props.scope === 'charset' || !!editor.currentScreen
+  if (format.value === 'png') {
+    if (props.scope === 'charset') return true
+    // A film strip of an empty animation would be a blank tile — nothing to export.
+    if (props.scope === 'sprite') {
+      return spritePng.value === 'sheet' || filmstripFrames.value.length > 0
+    }
+    return !!editor.currentScreen
+  }
   return byteCount.value > 0
 })
 
@@ -155,6 +200,11 @@ const filename = computed(() => {
       const set = format.value === 'png' ? pngSet.value : setChoice.value
       if (typeof set === 'number') name += `-set${set + 1}`
     }
+  } else if (props.scope === 'sprite') {
+    name += '-sprites'
+    if (format.value === 'png' && spritePng.value === 'filmstrip') {
+      name += `-${fileSlug(editor.currentAnimation?.name ?? 'animation')}`
+    }
   } else {
     name +=
       format.value === 'png' || screenChoice.value === 'current'
@@ -175,23 +225,39 @@ async function copy() {
   copyTimer = setTimeout(() => (copied.value = false), 1500)
 }
 
+/** The canvas a PNG export renders, per scope. */
+function pngCanvas(project: Project): HTMLCanvasElement | null {
+  if (props.scope === 'charset') {
+    return charsetSheetToCanvas(project, pngSet.value, pngScale.value)
+  }
+  if (props.scope === 'sprite') {
+    return spritePng.value === 'sheet'
+      ? spriteSheetToCanvas(project, pngScale.value)
+      : filmstripToCanvas(project, filmstripFrames.value, FILMSTRIP_STAGE, pngScale.value)
+  }
+  return editor.currentScreen
+    ? screenToCanvas(project, editor.currentScreen, pngScale.value)
+    : null
+}
+
 function download() {
   const project = projects.current
   if (!project || !hasData.value) return
   if (format.value === 'binary') {
     downloadBytes(filename.value, segmentsToBinary(segments.value))
   } else if (format.value === 'png') {
-    const canvas =
-      props.scope === 'charset'
-        ? charsetSheetToCanvas(project, pngSet.value, pngScale.value)
-        : editor.currentScreen
-          ? screenToCanvas(project, editor.currentScreen, pngScale.value)
-          : null
+    const canvas = pngCanvas(project)
     if (canvas) downloadCanvasPng(filename.value, canvas)
   } else {
     downloadText(filename.value, textOutput.value, format.value === 'basic' ? 'text/plain' : 'text/x-asm')
   }
 }
+
+const DIALOG_TITLE = {
+  charset: 'Export Character Set',
+  screen: 'Export Screen',
+  sprite: 'Export Sprites',
+} as const
 
 const segButton =
   'font-display rounded-sm border px-3 py-1.5 text-sm tracking-wider transition-colors'
@@ -200,7 +266,7 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
 </script>
 
 <template>
-  <AppDialog v-model="open" size="xl" :title="scope === 'charset' ? 'Export Character Set' : 'Export Screen'">
+  <AppDialog v-model="open" size="xl" :title="DIALOG_TITLE[scope]">
     <div class="flex flex-col gap-4">
       <!-- Format -->
       <fieldset class="flex flex-col gap-1.5">
@@ -248,6 +314,84 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
               Colours
             </button>
           </div>
+        </fieldset>
+      </template>
+
+      <!-- Sprite options -->
+      <template v-else-if="scope === 'sprite'">
+        <template v-if="format !== 'png'">
+          <fieldset class="flex flex-col gap-1.5">
+            <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">Tables</legend>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                :class="[segButton, spriteTables.patterns ? segActive : segIdle]"
+                @click="spriteTables.patterns = !spriteTables.patterns"
+              >
+                Patterns
+              </button>
+              <button
+                type="button"
+                :class="[segButton, spriteTables.colors ? segActive : segIdle]"
+                @click="spriteTables.colors = !spriteTables.colors"
+              >
+                Colours
+              </button>
+              <button
+                type="button"
+                :class="[segButton, spriteTables.animations ? segActive : segIdle]"
+                @click="spriteTables.animations = !spriteTables.animations"
+              >
+                Animations
+              </button>
+            </div>
+          </fieldset>
+
+          <fieldset v-if="spriteTables.animations" class="flex flex-col gap-1.5">
+            <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">
+              Animations
+            </legend>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                :class="[segButton, animationChoice === 'current' ? segActive : segIdle]"
+                @click="animationChoice = 'current'"
+              >
+                Current
+              </button>
+              <button
+                type="button"
+                :class="[segButton, animationChoice === 'all' ? segActive : segIdle]"
+                @click="animationChoice = 'all'"
+              >
+                All
+              </button>
+            </div>
+          </fieldset>
+        </template>
+
+        <fieldset v-else class="flex flex-col gap-1.5">
+          <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">Image</legend>
+          <div class="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              :class="[segButton, spritePng === 'sheet' ? segActive : segIdle]"
+              @click="spritePng = 'sheet'"
+            >
+              Sprite Sheet
+            </button>
+            <button
+              type="button"
+              :class="[segButton, spritePng === 'filmstrip' ? segActive : segIdle]"
+              @click="spritePng = 'filmstrip'"
+            >
+              Film Strip
+            </button>
+          </div>
+          <p v-if="spritePng === 'filmstrip'" class="text-xs text-ink-500">
+            {{ editor.currentAnimation?.name }} —
+            {{ filmstripFrames.length }} frame{{ filmstripFrames.length === 1 ? '' : 's' }}
+          </p>
         </fieldset>
       </template>
 

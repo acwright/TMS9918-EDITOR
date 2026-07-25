@@ -18,7 +18,7 @@ const backdropName = computed(() => PALETTE[editor.backdrop]?.name ?? '—')
         <h2 class="font-display text-sm tracking-wider text-ink-400">Paint Colour</h2>
         <span class="truncate text-xs text-ink-500">{{ paintName }}</span>
       </div>
-      <ColorPicker single-select />
+      <ColorPicker single-select :selected="editor.paintColor" @select="editor.setPaintColor" />
     </div>
 
     <div class="flex flex-col gap-1.5">

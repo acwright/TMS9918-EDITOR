@@ -5,10 +5,16 @@ import { PALETTE } from '@/domain/palette'
 import { useEditorStore, type ColorSlot } from '@/stores/editor'
 
 /**
- * `singleSelect` (Multicolor, Decision 9): one active paint colour instead of an
- * fg/bg pair — no F/B badges or touch toggle; any click sets `paintColor`.
+ * `singleSelect` (Multicolor Decision 9, Sprite Decision 27): one active colour
+ * instead of an fg/bg pair — no F/B badges or touch toggle. The selected value
+ * and its setter come from the parent (`selected` / `@select`) so the same
+ * picker drives multicolor's paint colour and a sprite's own colour.
+ *
+ * Without `singleSelect` it targets the mode's fg/bg pair through the store.
  */
-const props = defineProps<{ singleSelect?: boolean }>()
+const props = defineProps<{ singleSelect?: boolean; selected?: number }>()
+
+const emit = defineEmits<{ select: [index: number] }>()
 
 const editor = useEditorStore()
 
@@ -22,7 +28,7 @@ function onSwatch(event: PointerEvent, index: number) {
   if (event.button !== 0 && event.button !== 2) return
   event.preventDefault()
   if (props.singleSelect) {
-    editor.setPaintColor(index)
+    emit('select', index)
     return
   }
   editor.setColor(event.button === 2 ? 'bg' : target.value, index)
@@ -63,7 +69,7 @@ function badgeClass(index: number): string {
           class="relative h-10 w-full cursor-pointer rounded-sm border transition-[border-color] hover:border-ink-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink-300"
           :class="[
             { 'bg-checker': !entry.hex },
-            singleSelect && entry.index === editor.paintColor
+            singleSelect && entry.index === selected
               ? 'border-ink-100 outline-2 outline-offset-2 outline-ink-100'
               : 'border-ink-600',
           ]"
@@ -73,7 +79,7 @@ function badgeClass(index: number): string {
               ? `${entry.name} — click to paint`
               : `${entry.name} — left-click foreground, right-click background`
           "
-          :aria-pressed="singleSelect ? entry.index === editor.paintColor : undefined"
+          :aria-pressed="singleSelect ? entry.index === selected : undefined"
           @pointerdown="onSwatch($event, entry.index)"
         >
           <span

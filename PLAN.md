@@ -8,12 +8,17 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Round 6 complete — released as `v1.3.1`: a **project manager layout**
-  patch giving the project rows room to breathe now that they carry five actions. See **§13**
-  and Phase 24. Round 5 was `v1.3.0` (label case, pointer status, share links); Round 4 was
-  `v1.2.1` (sample refresh); Round 3 was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`;
-  Round 1 / Phases 1–10 was `v1.0.0`.
-- **Last updated:** 2026-07-24
+- **Active phase:** **Round 7 (target `v1.4.0`)** — a **Sprite editor mode**: a fifth project
+  type whose pattern table *is* the hardware Sprite Pattern Table, an 8×8 / 16×16 sprite
+  editor, per-sprite colour, and named frame **animations** with a live preview. See **§14**
+  for scope, decisions, the sprite hardware reference, and Phases 25–29.
+  **Phases 25–29 complete** — suite 406 green, version bumped to `1.4.0`. All that remains
+  is the release itself: commit, tag `v1.4.0`, push to `origin/main`, publish the GitHub
+  release.
+- Round 6 was `v1.3.1` (project manager layout, **§13** / Phase 24); Round 5 was `v1.3.0`
+  (label case, pointer status, share links); Round 4 was `v1.2.1` (sample refresh); Round 3
+  was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
+- **Last updated:** 2026-07-25
 - **Round 4 (target `v1.2.1`)** is a small patch round replacing the lacklustre Graphics I
   and II samples with proper mock game screens that showcase each mode's colour model — a
   tiled arcade platformer (**Platform Climb**) and a full-bitmap space battle
@@ -76,7 +81,7 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 A single-page web application for creating and editing TMS9918 character sets and screen
 maps. Users manage multiple project files (persisted in browser localStorage, plus
-download/upload as JSON), each targeting one of four VDP modes:
+download/upload as JSON), each targeting one of five VDP document types:
 
 | Mode | Screen grid | Cell size | Character sets | Color model |
 |---|---|---|---|---|
@@ -84,11 +89,18 @@ download/upload as JSON), each targeting one of four VDP modes:
 | Graphics Mode I | 32 × 24 | 8 × 8 px | 1 × 256 chars | fg/bg pair per character-set row (8 chars/group, 32 groups — matches HW color table) |
 | Graphics Mode II | 32 × 24 | 8 × 8 px | 1 × 256 mirrored **or** 3 × 256 independent (screen thirds) | fg/bg pair per pixel row of each character (8 pairs/char — matches HW) |
 | Multicolor Mode | 64 × 48 | 4 × 4 px | none (no glyph/charset editing) | one solid palette color per 4×4 block; transparent blocks show the backdrop |
+| Sprite Mode | none (not a screen mode) | 8 × 8 or 16 × 16 px sprites | 1 × 256 patterns = the 2 KB Sprite Pattern Table | one solid palette color per sprite (0 = invisible) |
 
-Multicolor is unlike the other three: there are **no characters and no character set to
+Multicolor is unlike the first three: there are **no characters and no character set to
 design** — the document is directly a 64×48 grid of palette-colour indices (one solid
 colour per chunky block). The Name/Pattern tables the hardware needs are synthesised only
 at export time (see **§10**). It is added in Round 3.
+
+Sprite Mode is unlike all four: it has **no screen at all**. The document is the sprite
+pattern table plus a per-sprite colour and a set of named **animations** (ordered lists of
+sprite frames) used for a live preview. Sprites are a hardware layer that overlays *any*
+graphics mode, so a sprite project is a companion to a screen project rather than a variant
+of one. It is added in Round 7 (see **§14**).
 
 Out of scope for now: **Import implementation** (the toolbar Import/Export share button is
 replaced by an **Export**-only button in Round 2; Import returns later as its own button).
@@ -170,6 +182,11 @@ neutral background.
     top-left block and low nibble the top-right, and the next byte is bottom-left/bottom-right
     — i.e. one byte encodes two horizontally-adjacent 4×4 blocks. See §10.3 for the exact
     grid↔byte mapping used by the exporter.
+- **Sprites:** an independent hardware layer available in Graphics I, Graphics II and
+  Multicolor (**not** in Text Mode). 32 sprites, one solid colour each, driven by a
+  256-entry × 8-byte **Sprite Pattern Table** and a 32-entry × 4-byte **Sprite Attribute
+  Table**. Sprite size (8×8 / 16×16) and magnification (1× / 2×) are global register bits.
+  Full reference in **§14.3**.
 
 ## 5. Data Model (Project File JSON)
 
@@ -178,26 +195,35 @@ neutral background.
   "version": 1,
   "id": "uuid",                    // storage key
   "name": "My Project",
-  "type": "text" | "graphics1" | "graphics2" | "multicolor",
+  "type": "text" | "graphics1" | "graphics2" | "multicolor" | "sprite",
   "createdAt": "ISO-8601",
   "modifiedAt": "ISO-8601",
   "settings": {
     "g2CharsetMode": "mirrored" | "independent",  // graphics2 only
-    "backdrop": 1                                 // multicolor only: palette index behind transparent blocks
+    "backdrop": 1,                                // multicolor + sprite: palette index behind transparent pixels
+    "spriteSize": 8 | 16,                         // sprite only: VDP R1 SIZE bit
+    "spriteMag": 1 | 2                            // sprite only: VDP R1 MAG bit
   },
-  // 1 charset for text/graphics1/mirrored-g2; 3 for independent-g2; [] (empty) for multicolor.
+  // 1 charset for text/graphics1/mirrored-g2/sprite; 3 for independent-g2; [] for multicolor.
   // Each charset: 256 chars × 8 bytes (pattern rows, MSB = leftmost pixel).
+  // For sprite projects this single table *is* the 2048-byte Sprite Pattern Table.
   "charsets": [ [ [0,0,0,0,0,0,0,0], ... ×256 ], ... ],
   "colors": {
     // text:       { "fg": 15, "bg": 4 }
     // graphics1:  { "groups": [ {"fg":15,"bg":1}, ... ×32 ] }        // one per picker row
     // graphics2:  { "rows": [ [ {"fg":15,"bg":1} ×8 ] ×256 ] ×(1|3) }// per char per pixel row, per charset
     // multicolor: {} (empty — colour lives per-cell in `screens[].cells`; backdrop in settings)
+    // sprite:     { "sprites": [ 15, ... ×256 ] }                    // one palette index per pattern slot
   },
   "screens": [
     // text/graphics1/graphics2: cells are charCode ints (0–255), row-major, 768 or 960.
     // multicolor:               cells are palette indices (0–15), row-major, 64×48 = 3072.
+    // sprite:                   [] (empty — sprite projects have no screen)
     { "name": "Screen 1", "cells": [ /* ints, row-major */ ] }
+  ],
+  // Sprite projects only; absent for every other type (§14.4).
+  "animations": [
+    { "name": "Walk", "frames": [0, 1, 2, 1], "fps": 8 }  // frames are sprite *slot* indices
   ]
 }
 ```
@@ -366,6 +392,17 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
   button, a later round (Round 2 ships Export only). Whole-project JSON import already exists
   in the project manager.
 - **Multicolor Mode** — implemented in Round 3 (§10). ~~deferred~~
+- **Sprite Mode** — implemented in Round 7 (§14). ~~deferred~~
+- **Sprite layouts / Sprite Attribute Table with positions** — Round 7 exports pattern,
+  colour and animation frame data but no X/Y placement, so it emits no SAT. A later round
+  could add a "sprite layout" document (up to 32 sprites positioned on a 256×192 stage,
+  with a live 4-sprites-per-scanline warning) that exports a real 128-byte SAT.
+- **Multi-sprite layering** — the classic TMS9918 trick of stacking two or three
+  single-colour sprites to fake a multi-colour one. Needs the layout concept above plus a
+  composite preview; deliberately out of Round 7.
+- **Sprite frames over a screen** — previewing an animation on top of a Graphics I/II
+  screen from another project (cross-project reference). Out of scope while a project is
+  the unit of storage.
 - Copy/paste characters between slots; charset slot reordering
 - Screen cell-region selection, copy/paste, stamp tools
 - Optional: shareable URLs, IndexedDB migration if localStorage quota becomes a problem
@@ -963,3 +1000,511 @@ One phase (24), presentation only — no domain, store, or persistence changes.
   actions sit at full size on a phone without overflowing, and `v1.3.1` is tagged, pushed,
   and released. *(Layout verified by reading the emitted classes and a production build;
   no in-browser pass — no browser driver in this environment.)*
+
+---
+
+## 14. Round 7 — Sprite Editor Mode (target `v1.4.0`)
+
+Seventh round, on top of `v1.3.1`. Adds a **fifth project type — Sprite** — covering the
+one part of the TMS9918 the editor has never touched: the sprite layer. Five phases (25–29).
+Same conventions as every previous round: pure logic lives in `src/domain/` with Vitest
+specs, every project mutation goes through the command layer (undoable), chrome stays in
+the base components, and the round ends with README + version bump + tag + push + GitHub
+release.
+
+Sprites are a hardware overlay that works in Graphics I, Graphics II and Multicolor (never
+in Text Mode), so a sprite project is a **companion document** to a screen project, not a
+variant of one. That framing drives most of the decisions below: a sprite project has no
+screen, and its deliverable is the sprite pattern/colour/animation data an assembler needs.
+
+### 14.1 Scope
+
+1. **New `sprite` project type** — one 256×8 pattern table (byte-identical in shape to the
+   hardware 2048-byte Sprite Pattern Table), one palette colour per sprite, project-wide
+   size (8×8 / 16×16) and magnification (1× / 2×) settings, no screens, plus a new
+   `animations` array (Phase 25).
+2. **Targeted sprite editor UI** — an 8×8 *or* 16×16 pixel editor (16×16 composited from
+   four hardware quadrants), a sprite picker showing every slot in its own colour over a
+   transparency checkerboard, a single-select colour rail + backdrop, a size-aware byte box,
+   and the existing transform buttons operating on the whole sprite (Phase 26).
+3. **Animations & live preview** — named animations (ordered lists of sprite slots) with a
+   frame strip, fps control, play/pause/scrub, and a preview canvas that honours
+   magnification and the backdrop colour. This is the "does my walk cycle read?" feedback
+   loop that a static grid can't give (Phase 27).
+4. **Sprite export** — Sprite Pattern Table, a per-sprite colour byte table (drop-in for
+   Sprite Attribute Table byte 4), and one frame table per animation, through the existing
+   `ExportDialog` (ca65 / Z80 / BASIC / Binary / PNG) (Phase 28).
+5. **Sample + README + release** — bundle a sprite sample with real animations, document the
+   mode, bump to `1.4.0`, tag `v1.4.0`, push, release with the title `v1.4.0` (Phase 29).
+
+### 14.2 Confirmed Design Decisions (Round 7)
+
+Settled at Round 7 kickoff; the user delegated the hardware/format judgment ("my
+understanding of the sprite specifications is minimal so I will lean on your research").
+Do not re-litigate without user input.
+
+23. **Sprite is a fifth project type, and its charset *is* the Sprite Pattern Table.**
+    `ProjectType` gains `'sprite'`. `charsets` holds exactly one 256×8-byte table, which is
+    bit-for-bit the hardware's 2048-byte Sprite Pattern Table (§14.3) — the same shape the
+    editor has stored since Phase 2. That reuse is the whole reason this mode is cheap:
+    `charOps`, `CharBytesBox`, `patternTableBytes`, charset validation, undo, autosave and
+    share links all work unchanged. `charsetCount('sprite')` returns `1`.
+24. **Size and magnification are project settings, mirroring VDP register 1.**
+    `settings.spriteSize: 8 | 16` and `settings.spriteMag: 1 | 2`. Both are *global* register
+    bits on real hardware — every sprite on screen shares them — so they belong to the
+    project, not to individual sprites. Size is chosen at creation and **convertible later**
+    from the project settings dialog: it only changes how the 256 patterns are *grouped*, so
+    no pattern bytes are ever lost in either direction (unlike Decision 1's GMII conversion,
+    this needs no destructive warning). Magnification is display-only.
+25. **A "sprite" is a slot, not a pattern.** At 8×8 there are 256 slots and slot *n* = pattern
+    *n*. At 16×16 there are 64 slots and slot *n* = patterns `4n … 4n+3` (the hardware ignores
+    the low two bits of a pattern name in 16×16 mode). One shared slot vocabulary —
+    `spriteCount(size)`, `slotToPattern(slot, size)`, `patternToSlot(pattern, size)` — indexes
+    the picker, the pixel editor, the colour table, animation frames and the exporter
+    identically, so nothing downstream has to special-case size.
+26. **16×16 pixels map through the hardware quadrant order.** Top-left, **bottom-left**,
+    top-right, bottom-right (§14.3) — the counter-intuitive column-major order is the single
+    most common bug in TMS9918 sprite code. It is confined to pure `spriteOps` functions
+    (`spriteGrid` / `writeSpritePixel` / `gridToPatterns`) so no component ever computes it,
+    and it gets a dedicated round-trip spec.
+27. **One colour per sprite slot, single-select.** `colors: { sprites: ColorIndex[] }` — 256
+    entries, one per pattern slot, default 15 (white). At 16×16 the quad-base entry
+    (`sprites[4n]`) governs the sprite; the other three are unreachable while that size is
+    active. **Amended after Phase 26 smoke testing** — see Decision 34: splitting back to
+    8×8 now spreads the quad's colour to those three entries. The colour rail reuses
+    `ColorPicker`'s `singleSelect`
+    mode from Round 3 (Decision 9) — a sprite has no fg/bg pair. Colour 0 is legal and means
+    *invisible*; the picker flags a colour-0 sprite rather than silently showing nothing.
+    **Note:** `isMulticolorColors` currently narrows on the *absence* of `fg`/`groups`/`rows`,
+    so a `sprites` key would wrongly narrow as multicolor — it must gain a `sprites` exclusion
+    at the same time `isSpriteColors` is added.
+28. **A sprite project has no screen.** `screens: []`, and `validateScreens` requires exactly
+    zero screens for `sprite` (it currently requires at least one for every type). Sprites are
+    an overlay over *someone else's* screen; inventing a stage to place them on would be a
+    different feature (see §8, deferred). `MODES.sprite` therefore carries
+    `columns/rows/cellCount = 0`, and `ModeInfo` gains an explicit **`hasScreen: boolean`** so
+    every consumer gates on a named flag instead of testing `cellCount === 0`.
+29. **Animations are a first-class, optional top-level array — not repurposed screens.**
+    `animations?: SpriteAnimation[]`, present only for sprite projects. A screen is a
+    fixed-length grid of cells; an animation is a variable-length ordered list of slot
+    references. Overloading `screens[].cells` would break the length invariant every
+    validator, transform and exporter relies on, in exchange for reusing a paginator that is
+    ~30 lines. The `AnimationPanel` gets its own paginator modelled on the screen one.
+30. **The schema stays `version: 1`.** `animations` is additive and optional, and no existing
+    field changes meaning, so files written by `v1.3.1` remain valid. A `v1.3.1` app opening a
+    sprite project still fails — but on `type`, with the existing clear message, which is the
+    correct outcome.
+31. **The preview animates one sprite over a backdrop.** Reuses `settings.backdrop` (added in
+    Round 3, Decision 11) so transparent pixels resolve the same way they do in multicolor.
+    Play/pause, fps 1–30, frame scrub, honours `spriteMag`, plus an independent view zoom
+    (1×–8×) that is view state — never in the undo stack, never persisted to the file. The
+    rAF loop lives in the component and stops on unmount, on pause, and when the animation has
+    fewer than two frames.
+32. **Export is the deliverable; positions are not.** Three segment kinds (§14.6): the Sprite
+    Pattern Table, a **sprite colour table** (one byte per slot, low nibble = colour, EC bit
+    clear — drop it straight into Sprite Attribute Table byte 4), and one **frame table** per
+    animation holding the SAT pattern-name byte for each frame (`slot * 4` at 16×16, `slot` at
+    8×8), so the emitted bytes are usable without further arithmetic. No Sprite Attribute
+    Table is emitted, because the editor has no X/Y data to put in one — that is the deferred
+    "sprite layout" feature in §8. `ExportDialog` gains a `sprite` scope.
+33. **Hardware limits are documented, not enforced.** 32 sprites on screen, 4 per scanline,
+    the 5th-sprite drop, priority by index, the 0xD0 terminator and the early-clock bit are
+    all facts about *placement*, which this mode doesn't model. They go in §14.3, the README,
+    and a short "Hardware notes" block in the sprite settings dialog — the editor never
+    blocks an edit over them.
+34. **A 16×16 → 8×8 split spreads the quad's colour to all four patterns.**
+    *Added during Phase 26 after a smoke test; amends Decision 27.* Colouring an 8×8 sprite
+    green, grouping to 16×16, drawing the other three quadrants, then splitting back left
+    three of the four sprites white — their 8×8 entries had never been set, because at 16×16
+    only the quad base is reachable. Decision 27 called that "lossless", and technically it
+    was: it preserved colours the user had never chosen while discarding the one they had
+    just been looking at. On a 16→8 split each entry now takes its quad base's colour
+    (`sprites[i] ← sprites[i - (i % 4)]`), so the four new sprites keep what the 16×16 sprite
+    was showing. Growing 8→16 still changes nothing. This *is* mildly lossy in one case —
+    four distinct 8×8 colours within one quad collapse after an 8→16→8 round trip — but it is
+    a single undoable command, the dialog says so, and the alternative silently discards the
+    colour actually on screen. Pattern bytes are untouched in both directions.
+
+### 14.3 Sprite hardware reference
+
+Verified against the TI *TMS9918A/TMS9928A/TMS9929A Video Display Processors Data Manual*
+and Thierry Nouspikel's VDP write-up (see Sources in the README).
+
+**Sprite Pattern Table** — 256 patterns × 8 bytes = **2048 bytes**. One bit per pixel,
+MSB = leftmost, exactly like the character Pattern Generator. Monochrome: a set bit paints
+the sprite's colour, a clear bit is transparent.
+
+**Sizes** — VDP register 1 carries two bits (TI numbers bits MSB-first, so these are its
+bits 6 and 7; in LSB-0 terms bit 1 and bit 0):
+
+| SIZE | MAG | Sprite pattern | Pixels on screen | Slots available |
+|---|---|---|---|---|
+| 0 | 0 | 8 × 8 (1 pattern) | 8 × 8 | 256 |
+| 0 | 1 | 8 × 8 (1 pattern) | 16 × 16 (each pixel a 2×2 box) | 256 |
+| 1 | 0 | 16 × 16 (4 patterns) | 16 × 16 | 64 |
+| 1 | 1 | 16 × 16 (4 patterns) | 32 × 32 (each pixel a 2×2 box) | 64 |
+
+**16×16 quadrant order** — a 16×16 sprite uses four consecutive patterns starting at a
+multiple of 4 (the hardware masks off the low two bits of the pattern name). The four 8-byte
+groups are laid out **column-major**:
+
+```
+pattern 4n     → top-left      bytes  0– 7      ┌───────┬───────┐
+pattern 4n + 1 → bottom-left   bytes  8–15      │ 4n    │ 4n+2  │
+pattern 4n + 2 → top-right     bytes 16–23      ├───────┼───────┤
+pattern 4n + 3 → bottom-right  bytes 24–31      │ 4n+1  │ 4n+3  │
+                                                └───────┴───────┘
+```
+
+So for sprite-local pixel `(x, y)`, `0 ≤ x,y < 16`:
+`pattern = 4n + (x >> 3) * 2 + (y >> 3)`, `byteIndex = y & 7`, `bitMask = 0x80 >> (x & 7)`.
+
+**Sprite Attribute Table** — 32 entries × 4 bytes = **128 bytes** (not produced by this
+round; documented so the exported colour/pattern bytes make sense):
+
+| Byte | Contents |
+|---|---|
+| 0 | Vertical position. Offset by one: `0xFF` is the **topmost** pixel line, `0x00` the second, `0xBE` the last. `0xD0` (208) is a **terminator** — that sprite and every later one is not displayed. |
+| 1 | Horizontal position, 0–255 (left edge). |
+| 2 | Pattern name. In 16×16 mode the low two bits are ignored, so usable names are multiples of 4. |
+| 3 | Bit 7 = **early clock** (shifts the sprite 32 pixels *left*, letting it enter from the left edge); bits 3–0 = palette colour. Bits 6–4 are unused. |
+
+**Limits and behaviour**
+
+- 32 sprites total; only **4 per horizontal scan line** — the 5th and beyond are dropped on
+  that line and its number is reported in the status register.
+- Priority is by index: sprite 0 draws over sprite 1, and so on. Sprites always overlay the
+  background pattern layer.
+- Colour 0 is transparent — the sprite is invisible but still consumes one of the four
+  per-line slots and still sets the coincidence flag.
+- Sprites do **not** exist in Text Mode. They are available in Graphics I, Graphics II and
+  Multicolor.
+
+### 14.4 Data model additions
+
+```ts
+// types.ts
+export type ProjectType = 'text' | 'graphics1' | 'graphics2' | 'multicolor' | 'sprite'
+
+/** Sprite: one solid palette colour per pattern slot (256 entries; 16×16 uses sprites[4n]). */
+export interface SpriteColors {
+  sprites: ColorIndex[]
+}
+
+/** An ordered list of sprite slots played back as a preview (§14.2 Decision 29). */
+export interface SpriteAnimation {
+  name: string
+  /** Sprite *slot* indices (0–255 at 8×8, 0–63 at 16×16). May repeat; may be empty. */
+  frames: number[]
+  /** Playback rate, 1–30. */
+  fps: number
+}
+
+export interface ProjectSettings {
+  g2CharsetMode?: G2CharsetMode
+  backdrop?: ColorIndex     // multicolor + sprite
+  spriteSize?: 8 | 16       // sprite only
+  spriteMag?: 1 | 2         // sprite only
+}
+
+export interface Project {
+  /* …unchanged… */
+  animations?: SpriteAnimation[]   // sprite only
+}
+```
+
+Blank sprite project (factory): one blank 256×8 charset, `colors.sprites` = 256 × `15`,
+`settings` = `{ spriteSize: 8, spriteMag: 1, backdrop: 1 }`, `screens: []`, and one starter
+animation `{ name: 'Animation 1', frames: [0], fps: 8 }`.
+
+### 14.5 Editor UI layout (sprite mode)
+
+A third `EditorView` branch, alongside the existing character branch and the multicolor
+branch. Two columns at `lg`+, Sprite / Animation tabs below it (the same pattern as the
+character modes; multicolor's single-column exception does not apply).
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ App bar: project name · SPRITE MODE · save state · back      │
+├───────────────────────────┬──────────────────────────────────┤
+│ Sprite editor 8×8 / 16×16 │  Animation toolbar:              │
+│ (quadrant guides at 16×16)│  export · zoom · play/pause ·    │
+│ Colour rail (single-      │  undo · redo ·                   │
+│ select) + backdrop        │  animation paginator ‹ 1/n ›     │
+│ Transform button rows     ├──────────────────────────────────┤
+│ Byte box (8 or 32 bytes,  │  Preview canvas                  │
+│ $/# toggle, paste-to-set) │  (backdrop, honours MAG, 1×–8×)  │
+├───────────────────────────┤                                  │
+│ Sprite picker             │  Frame strip:                    │
+│ 16×16 slots (8×8 sprites) │  [0][1][2][1] + add/remove/move  │
+│ 8×8 slots (16×16 sprites) │  fps stepper · frame count       │
+│ [sprite export button]    │                                  │
+└───────────────────────────┴──────────────────────────────────┘
+```
+
+Shortcut deltas for this mode (documented in the README alongside the existing map):
+`[` / `]` previous/next **sprite slot**, `,` / `.` previous/next **animation**,
+`Space` play/pause, `+` / `-` preview zoom. The screen-only bindings (`G` grid) are inert
+here; every character transform key (`F`, `C`, `I`, `R`, `H`, `V`, Alt+arrows) applies to
+the whole sprite, 8×8 or 16×16.
+
+### 14.6 Sprite export reference
+
+| Segment | Label | Bytes | Contents |
+|---|---|---|---|
+| **Sprite patterns** | `sprite_patterns` | 2048 | The whole pattern table, 8 bytes per line. In 16×16 mode the bytes are already in hardware quadrant order, so no reordering happens at export. |
+| **Sprite colours** | `sprite_colors` | 256 (8×8) / 64 (16×16) | One byte per slot: `colour & 0x0F`, early-clock bit clear. Drop-in for Sprite Attribute Table byte 4. |
+| **Animation frames** | `sprite_anim_<slug>` | one byte per frame | The SAT **pattern-name** byte for each frame — `slot` at 8×8, `slot * 4` at 16×16 — so the data needs no arithmetic at runtime. One segment per animation; empty animations are skipped. |
+
+- Scope options in `ExportDialog`: **Patterns** / **Colours** / **Animations** toggles, plus
+  Current animation vs. All animations (mirroring the Current/All screens control).
+- Formats: ca65, Z80 `db`, BASIC `DATA`, raw Binary, PNG — all reuse the existing renderers
+  over the `ByteSegment` model, including Round 5's label-case option for the assembly
+  dialects (`sprite_patterns` → `SpritePatterns`, etc.).
+- PNG: a **sprite sheet** (every slot in a grid, each in its own colour on the backdrop) or a
+  **filmstrip** of the current animation's frames, at a selectable scale.
+
+### 14.7 `ProjectType` touch-point checklist
+
+Round 3 shipped a bug where `repository.ts`'s index guard silently dropped every saved
+multicolor project because it hadn't learned the new type. Adding `'sprite'` means auditing
+every place that enumerates modes — check each of these during Phase 25/26 and tick it off:
+
+- [x] `src/domain/types.ts` — `ProjectType`, `SpriteColors`, `SpriteAnimation`,
+      `isSpriteColors`, **fix `isMulticolorColors`** (Decision 27) — Phase 25
+- [x] `src/domain/modes.ts` — `MODES.sprite`, `ModeInfo.hasScreen`, `charsetCount`,
+      `PROJECT_TYPES`/`isProjectType` — Phase 25
+- [x] `src/domain/factory.ts` — `defaultColors`, settings, empty `screens`, starter animation
+- [x] `src/domain/serialization.ts` — accepted `type` list, settings, colours,
+      **zero**-screen rule, `animations` validation
+- [x] `src/persistence/repository.ts` — `isSummary` type guard ← *the Round 3 bug*, now
+      derived from `MODES` so it cannot recur
+- [x] `src/domain/colors.ts` + `src/domain/export/tables.ts` + `src/stores/editor.ts` —
+      narrow-by-elimination sites that assumed Graphics II once the other guards failed
+- [x] `src/domain/export/tables.ts` — `spriteSegments` (Phase 28)
+- [x] `src/domain/screenStatus.ts` — confirmed never reached: `EditorView`'s sprite branch
+      renders no `ScreenPanel`, so no `MODES[type]` screen arithmetic runs for a screenless
+      project. No change needed.
+- [x] `src/utils/spriteRender.ts` — new sibling to `screenRender.ts` (Phases 26–27)
+- [x] `src/stores/editor.ts` — selection, colour, size/mag, transforms, animations
+- [x] `src/views/EditorView.vue` — third layout branch + mode-aware shortcuts
+- [x] `src/components/projects/NewProjectDialog.vue` — fifth mode + size sub-choice
+- [x] `src/components/editor/ExportDialog.vue` — `sprite` scope (Phase 28)
+- [x] `src/components/editor/ProjectSettingsDialog.vue` — size conversion + hardware notes
+- [x] `src/samples/index.ts` — sprite sample (Phase 29)
+- [x] `README.md` — modes table, features, shortcuts, export, samples (Phase 29)
+
+### 14.8 Phases
+
+#### Phase 25 — Sprite Domain & Data Model ✅
+- [x] `types.ts`: `'sprite'` added to `ProjectType`; new `SpriteSize` (8|16), `SpriteMag` (1|2),
+      `SpriteColors` and `SpriteAnimation`; `ProjectSettings` gained `spriteSize`/`spriteMag`
+      (and `backdrop` now documents its sprite use); `Project` gained `animations?`;
+      `isSpriteColors` added and `isMulticolorColors` now also excludes `sprites` (Decision 27).
+- [x] `modes.ts`: `MODES.sprite` (`columns/rows/cellCount = 0`, `cellWidth/cellHeight = 8`),
+      `hasScreen` on every `ModeInfo` (Decision 28), `charsetCount('sprite') = 1`. Also added
+      **`PROJECT_TYPES`** (derived from `MODES`) + `isProjectType` so mode lists can't go stale.
+- [x] New `src/domain/sprites.ts` (standalone, no `modes` import — same shape as
+      `multicolor.ts`): hardware constants (`SPRITE_PATTERN_COUNT/_BYTES/_TABLE_SIZE`,
+      `SAT_ENTRY_BYTES`, `SAT_SIZE`, `SPRITE_TERMINATOR_Y`, `SPRITE_EARLY_CLOCK`,
+      `SPRITE_MAX_ON_SCREEN/_PER_LINE`, `MIN_FPS`/`MAX_FPS`), slot math (`spriteCount`,
+      `slotToPattern`, `patternToSlot`, `patternsForSlot`, `clampSlot`, `isValidSlot`,
+      `spritePixelSize`), the quadrant mapping (`quadrantFor`), composite accessors
+      (`spriteGrid`, `getSpritePixel`, `gridToPatterns`, `spritePatterns`, `spriteBytes`,
+      `bytesToPatterns`), and animation helpers (`clampFps`, `moveFrame`,
+      `frameToPatternName`).
+- [x] `src/domain/spriteOps.ts`: fill · clear · invert · shift L/R/U/D (wrap) · rotate L/R ·
+      flip H/V · setPixel over an N×N `SpriteGrid`, plus `transformSprite(charset, slot, size,
+      op)` which reads → transforms → returns the slot's patterns in hardware order.
+- [x] `factory.ts`: blank sprite project per §14.4 (`spriteSize` option, `screens: []`,
+      256 white sprite colours, one starter animation).
+- [x] `serialization.ts`: accepts `'sprite'`; requires `spriteSize ∈ {8,16}`,
+      `spriteMag ∈ {1,2}` and a valid `backdrop`; requires `colors.sprites` = 256 palette
+      indices; requires **exactly zero** screens (gated on `hasScreen`); validates
+      `animations` (name/frames/fps, frame bound follows `spriteSize`); rejects `animations`
+      on non-sprite projects. `validateSettings` now returns `{ g2CharsetMode, spriteSize }`.
+- [x] `repository.ts`: `isSummary` now calls `isProjectType` instead of a hard-coded mode
+      list — the Round 3 bug class is gone rather than patched, and the regression spec is
+      `it.each(PROJECT_TYPES)` so it covers every future mode automatically (§14.7).
+- [x] **Fallout fixed:** three sites narrowed the colour union *by elimination* and silently
+      assumed Graphics II once the other guards failed — `colors.ts` `resolveRowColors`,
+      `export/tables.ts` `colorTableBytes`, and the editor store's `activeColors`. A fifth
+      colour model made them type-errors; all three now narrow positively with
+      `isGraphics2Colors`.
+- [x] Vitest (**68 new**, suite **313 green**): `sprites.spec.ts` (slot math, an explicit
+      quadrant table, per-quadrant pixel reads, grid↔patterns round-trips at both sizes, byte
+      views, animation helpers) and `spriteOps.spec.ts` (**every transform asserted equal to
+      the `charOps` implementation at 8×8**, plus corner-rotation/seam-spanning checks at
+      16×16), extended factory/modes/serialization/repository specs, and a sprite share-link
+      round-trip. Type-check + lint + `VITE_BASE` build clean.
+- **Exit criteria:** ✅ a valid sprite project can be created, (de)serialized, round-tripped
+  through a share link, and pixel-addressed at both sizes, all under test; no UI yet.
+
+#### Phase 26 — Sprite Editor UI ✅
+- [x] `NewProjectDialog`: fifth mode card, with an 8×8 / 16×16 sub-choice shown only for
+      `type === 'sprite'` (same slot the GMII charset-mode choice occupies); defaults to 16×16.
+- [x] `PixelEditor.vue` generalised to a purely presentational grid: `pixels: boolean[]` +
+      `colors: number[]` (palette index per cell) computed by the parent, `paint(x, y, on)`
+      emitted back, and quadrant seams at 16×16 (`quadrantGuides`). It no longer imports
+      `charOps` or knows what a pattern is. `CharacterPanel` feeds it `charOps`-derived values
+      so character-mode behaviour is unchanged; `SpritePanel` feeds it `spriteGrid`.
+      *Deviation:* one square `size` prop instead of `width`/`height` — every grid this app
+      edits is square, and the column count drives an inline `gridTemplateColumns` (Tailwind
+      has no static `grid-cols-16`).
+- [x] New `SpritePanel.vue`: pixel editor + single-select colour picker + backdrop picker
+      (both undoable) + transform rows + `CharBytesBox`, with a slot readout that also shows
+      the hardware pattern name at 16×16 (`#3 · pat 12`) and an explicit warning when a sprite
+      is coloured Transparent (invisible on hardware).
+- [x] `ColorPicker`: `singleSelect` was reaching into the store for `paintColor`; it now takes
+      `selected` and emits `select`, so the same component drives multicolor's paint colour
+      *and* a sprite's own colour. `MulticolorPanel` updated to pass them.
+- [x] `CharBytesBox` / `src/domain/bytes.ts`: `parseBytes(text, expected)` — 8 bytes at 8×8,
+      **32** at 16×16 in hardware quadrant order; `formatBytes` unchanged and existing callers
+      keep the 8-byte default. The box now takes `bytes` (not `pattern`) and commits through
+      `editor.setPatternBytes`, which dispatches by mode.
+- [x] New `SpritePicker.vue` + `SpriteGrid.vue` (modelled on `CharsetPicker`/`CharsetGrid`):
+      16 × 16 slots at 8×8 or 8 × 8 slots at 16×16 — a 128×128 logical sheet either way — each
+      drawn in its own colour over the backdrop, selection ring, grid overlay, live re-render,
+      and a magenta corner marker on colour-0 (invisible) slots. Export button lands in Phase 28.
+- [x] `ProjectSettingsDialog`: sprite-size switch (8×8 ↔ 16×16) as an undoable command with
+      direction-specific copy explaining what happens to colour (Decisions 24 + 34), plus the
+      §14.3 **Hardware notes** block — 32 on screen / 4 per line, priority, colour 0, not in
+      Text Mode (Decision 33).
+- [x] **Post-smoke-test fix (Decision 34):** splitting 16×16 → 8×8 now spreads each quad's
+      colour to its four pattern entries, so the sprites keep the colour they were showing
+      instead of reverting three of every four to their never-set 8×8 entry. Three specs
+      cover it, including a literal replay of the reported smoke test and an undo that
+      restores four distinct pre-split colours exactly.
+- [x] `EditorView`: third layout branch (sprite editor + picker | preview, tabs relabelled
+      Sprite / Preview below `lg`) and a mode-aware shortcut map — `[`/`]` step sprite slots,
+      the screen-only bindings (`,` `.` `G` `+` `-`) go inert, and every transform key routes
+      through `applyTransform`.
+- [x] `stores/editor.ts`: `selectedSprite`/`selectSprite`, `isSprite`, `spriteSize`,
+      `spriteMag`, `spriteSlots`, `spriteColor`, `currentSpriteGrid`, `currentSpriteBytes`,
+      `executeSpriteChange` (all four patterns of a 16×16 slot as **one** command),
+      `setSpriteColor`, `setSpriteSize`, `setSpriteMag`, `spriteTransform`, `setPatternBytes`,
+      and a sprite-aware `paintPixel`. `setBackdrop` now accepts sprite projects too.
+- [x] **`applyTransform(name)` consolidation.** Rather than branch on mode at every call site,
+      the store gained a `TransformName` map pairing each transform's label with its `charOps`
+      *and* `spriteOps` implementation. `SpritePanel`, and the keyboard map both call
+      `applyTransform`, so neither knows which mode is open, and the undo labels stay identical
+      to `v1.3.1`. `transform(label, fn)` is retained for the existing character call sites.
+- [x] **Pulled forward from Phase 27** so the right column isn't a dead placeholder:
+      `src/utils/spriteRender.ts` (`drawSprite`/`fillBackdrop`/`renderSpriteFrame`/
+      `spriteColorOf`, shared with the picker), `SpritePreview.vue` (backdrop + hardware
+      magnification, then view zoom), and `AnimationPanel.vue` as the preview shell with zoom,
+      a MAG 1×/2× toggle, and undo/redo. Phase 27 adds the animations, transport, and frame
+      strip inside it.
+- [x] Vitest (**39 new**, suite **352 green**): 16 store specs (slot clamping, quadrant-correct
+      painting, stroke coalescing across quadrants, `applyTransform` in both modes, colour at
+      the quad base with siblings untouched, lossless size conversion, magnification,
+      32-byte paste, shared backdrop, and every no-op guard), `parseBytes` at custom lengths,
+      `PixelEditor` at 16×16 (cell count, template columns, coordinate math, row stride,
+      quadrant guides), a `SpritePanel` integration spec mounted against a real store, and a
+      `spriteRender` spec asserting all four quadrants land at the right canvas coordinates.
+- **Exit criteria:** ✅ create a sprite project at either size and draw, colour, transform and
+  paste-to-set a sprite end-to-end with working undo/redo; switching size preserves every
+  pattern and colour. Type-check + lint + `VITE_BASE` build clean.
+  *(Verified via the store/component specs and a production build that compiles every template;
+  no in-browser pass — no browser driver in this environment.)*
+
+#### Phase 27 — Animations & Live Preview ✅
+- [x] `stores/editor.ts`: `selectedAnimation`/`selectAnimation`, `animations`,
+      `animationCount`, `currentAnimation`, `frameCount`, `previewSlot`, and undoable
+      `addAnimation` · `removeAnimation` (never the last one) · `renameAnimation` ·
+      `setAnimationFps` · `addFrame` · `removeFrame` · `reorderFrame` · `setFrame`, all
+      routed through one `executeFramesChange` helper. Playback state (`playing`,
+      `selectedFrame`) is view state — not undoable, not persisted — with `selectFrame`,
+      `stepFrame` (wrapping), `setPlaying` and `togglePlaying`.
+      *Naming note:* the frame-reorder action is `reorderFrame` in the store, since
+      `moveFrame` is the pure `sprites.ts` helper it delegates to.
+- [x] `src/utils/spriteRender.ts`: added `SPRITE_SHEET_SIZE`/`sheetColumns`,
+      `renderSpriteSheet` (with an optional colour-0 marker) and `renderFilmstrip`, plus the
+      `spriteSheetToCanvas`/`filmstripToCanvas` upscalers Phase 28's PNG export will call.
+      `SpriteGrid.vue` now renders through `renderSpriteSheet` instead of its own copy of the
+      loop, so the picker and the exported sheet cannot drift apart.
+- [x] `AnimationPanel.vue` filled in around the Phase 26 preview shell: zoom · MAG 1×/2× ·
+      transport (step back / play-pause / step forward) · fps stepper (1–30) · undo/redo ·
+      animation paginator ‹ 1/n › with rename/add/delete and the same dialog pattern as the
+      screen paginator. The preview reports the on-screen size and says when it is falling
+      back to the edited sprite.
+- [x] New `FrameStrip.vue`: ordered thumbnails (each a `SpritePreview`), click to select
+      (which pauses), move left/right, retarget the selected frame at the edited sprite,
+      append, remove, and a dashed empty state explaining how to add the first frame.
+- [x] rAF playback loop per Decision 31 — seeded from `performance.now()`, driven by the
+      animation's `fps` rather than the repaint rate, and stopped on pause, on unmount, and
+      below two frames. `EditorView` binds `Space` to play/pause and `,`/`.` to the animation
+      paginator in sprite mode.
+- [x] `vitest.setup.ts`: stub `HTMLCanvasElement.getContext` to return `null`. jsdom has no
+      canvas, so every mounted canvas component was printing a "Not implemented" error —
+      noise that would bury a real failure. Components already treat a null context as
+      "nothing to draw"; the pure renderers are covered by their own recording-context specs.
+- [x] Vitest (**28 new**, suite **383 green**): 14 store specs (add/remove/rename/fps/frame
+      ops with undo, the last-animation guard, out-of-range no-ops, slot-range validation,
+      wrapping playhead, the two-frame play guard, preview fallback, and non-sprite
+      projects), 9 `AnimationPanel` specs including a **driven rAF loop** asserting the
+      playhead advances on the fps interval and not before, stops on pause and on unmount,
+      and 5 renderer specs for sheet layout, the colour-0 marker, and filmstrip spacing.
+- **Exit criteria:** ✅ build a multi-frame animation, play it back at a chosen fps with
+  magnification and backdrop applied, scrub frames, and undo every structural change.
+  *(Verified via the store/component specs — including the playback loop — and a production
+  build; no in-browser pass, no browser driver in this environment.)*
+
+#### Phase 28 — Sprite Export ✅
+- [x] `src/domain/export/tables.ts`: `spriteSegments(project, selection)` per §14.6 —
+      `sprite_patterns` (the full 2048-byte table, already in hardware quadrant order),
+      `sprite_colors` (one byte per *slot*, so 256 at 8×8 and 64 at 16×16, masked to the low
+      nibble with the early-clock bit clear), and one `sprite_anim_<slug>` per selected
+      animation. Slugs come from the existing `labelSlug` and are de-duplicated with a `_2`,
+      `_3`, … suffix, since two animations may legitimately share a name and duplicate labels
+      would not assemble. Empty animations are skipped. The byte builders
+      (`spritePatternBytes`/`spriteColorBytes`/`spriteFrameBytes`) are exported for testing.
+- [x] `ExportDialog.vue`: new `sprite` scope with Patterns / Colours / Animations toggles and
+      Current vs. All animations; live preview, Copy, Download all unchanged. PNG offers
+      **Sprite Sheet** (the 128×128 slot sheet) or **Film Strip** (the current animation's
+      frames on a 32px stage, wide enough for 16×16 at MAG 2). Round 5's label-case fieldset
+      applies unchanged to ca65/Z80. The scope-specific PNG canvas moved into one `pngCanvas`
+      helper rather than a third nested ternary.
+- [x] Entry point: an **Export Sprites** button in the `SpritePicker` header opens scope
+      `sprite`. No screen scope exists in this mode.
+- [x] Fixed a plural bug found by the dialog spec: the segment header read
+      "(1 frames @ 8 fps)".
+- [x] Vitest (**17 new**, suite **400 green**): 9 domain specs (pattern-table size and byte
+      order, per-slot colour counts at both sizes with siblings excluded, low-nibble masking,
+      the `slot × 4` pattern-name conversion, 8×8 identity, empty-animation skipping, slug
+      de-duplication across `Walk`/`walk!`/`WALK`, the table toggles, and rendering through
+      the assembly pipeline with PascalCase labels) plus 8 `ExportDialog` specs mounted
+      against a real store (title, live ca65 preview, pluralisation, toggles, current-vs-all
+      animations, sprite-sheet and film-strip PNG dimensions and filenames, the empty-animation
+      guard on Download, and the binary byte count).
+- **Exit criteria:** ✅ a sprite project exports to ca65, Z80, BASIC, binary and PNG; the
+  emitted pattern bytes carry the on-screen sprites in hardware order and the frame tables
+  index them as SAT pattern names.
+
+#### Phase 29 — Sample, README, Versioning & Release
+- [x] Bundled sprite **sample project** — `Sample — Astro Ace` (`astro-ace`) in
+      `src/samples/index.ts`: nine 16×16 sprites across three animations — a ship cycling
+      three exhaust lengths, a two-pose alien walk, and a four-frame explosion whose slots
+      run light yellow → dark yellow → medium red → dark red, demonstrating that colour is
+      per sprite slot. Authored as 16-row ASCII art fed through the tested `gridToPatterns`,
+      so the art stays readable instead of being hand-interleaved into quadrants.
+- [x] Samples spec generalised for a screenless mode (`hasScreen` gate) plus four sprite
+      assertions: pixels exist, every animation frame is in range **and non-blank**, and no
+      animated sprite is coloured transparent (an invisible sample would look broken).
+- [x] README: five project types in the intro and the modes table, **Sprite editor** and
+      **Sprite animations** feature bullets, a new **Sprites** section covering the hardware
+      facts (global size/magnification, the column-major 16×16 quadrant order, 32-on-screen /
+      4-per-line, priority by index, colour 0), the sprite export table, the shortcut deltas,
+      and the Astro Ace sample.
+- [x] **Fixed while documenting the shortcuts:** the animation panel's zoom buttons advertised
+      `+`/`-`, but the zoom was component-local so the global handler couldn't reach it — and
+      `+`/`-` were explicitly inert in sprite mode. Moved to `editor.previewScale` /
+      `zoomPreview`, matching Decision 31 and the way screen scale moved into the store in
+      Phase 8. The shortcuts now work and the tooltips are honest.
+- [x] PLAN Current Status + all Round 7 checkboxes updated; §14.7 checklist fully ticked.
+- [x] Bumped `package.json` to `1.4.0` (surfaces via `__APP_VERSION__` → manager footer);
+      suite **406 green**; type-check + lint + `VITE_BASE=/TMS9918-EDITOR/` build clean.
+- [ ] Commit, tag `v1.4.0`, push to `origin/main`, publish the GitHub release with the title
+      `v1.4.0` and a summary of the round.
+- **Exit criteria:** README reflects Round 7, the sprite sample ships with working
+  animations, and `v1.4.0` is tagged, pushed, and released.

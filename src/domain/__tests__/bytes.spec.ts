@@ -59,4 +59,25 @@ describe('parseBytes', () => {
   it('rejects non-numeric tokens', () => {
     expect(parseBytes('0,60,66,xy,126,66,66,0')).toBeNull()
   })
+
+  describe('custom lengths (16×16 sprites paste 32 bytes)', () => {
+    const thirtyTwo = Array.from({ length: 32 }, (_, i) => i * 8)
+
+    it('accepts exactly `expected` bytes', () => {
+      expect(parseBytes(formatBytes(thirtyTwo, 'hex'), 32)).toEqual(thirtyTwo)
+      expect(parseBytes(formatBytes(thirtyTwo, 'dec'), 32)).toEqual(thirtyTwo)
+    })
+
+    it('rejects a run of the default length when 32 are expected', () => {
+      expect(parseBytes('0,60,66,66,126,66,66,0', 32)).toBeNull()
+    })
+
+    it('rejects 32 bytes when the default 8 are expected', () => {
+      expect(parseBytes(formatBytes(thirtyTwo, 'hex'))).toBeNull()
+    })
+
+    it('still strips directives at the longer length', () => {
+      expect(parseBytes(`.byte ${formatBytes(thirtyTwo, 'hex')}`, 32)).toEqual(thirtyTwo)
+    })
+  })
 })

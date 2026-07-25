@@ -46,3 +46,15 @@ if (!globalThis.sessionStorage) {
     configurable: true,
   })
 }
+
+/**
+ * jsdom has no canvas implementation, so `getContext('2d')` throws a
+ * "Not implemented" console error for every canvas a mounted component renders.
+ * Components already treat a null context as "nothing to draw", which is the
+ * behaviour we want under test — this just returns null quietly instead of
+ * burying real failures in noise. Drawing itself is covered by the pure
+ * renderers' specs, which pass their own recording context.
+ */
+if (typeof HTMLCanvasElement !== 'undefined') {
+  HTMLCanvasElement.prototype.getContext = () => null
+}

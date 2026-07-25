@@ -11,18 +11,24 @@ import type {
   ProjectColors,
   ProjectSettings,
   ProjectType,
+  SpriteSize,
 } from './types'
 import { CHAR_BYTES, CHAR_COUNT, COLOR_GROUP_COUNT, MODES, charsetCount } from './modes'
+import { SPRITE_PATTERN_COUNT } from './sprites'
 
 const DEFAULT_FG = 15 // White
 const DEFAULT_BG = 1 // Black
-const DEFAULT_BACKDROP = 1 // Black — shown behind transparent multicolor blocks
+const DEFAULT_BACKDROP = 1 // Black — behind transparent multicolor blocks / sprite pixels
+const DEFAULT_SPRITE_COLOR = 15 // White
+const DEFAULT_FPS = 8
 
 export interface CreateProjectOptions {
   name: string
   type: ProjectType
   /** Required for graphics2; ignored otherwise. Defaults to 'mirrored'. */
   g2CharsetMode?: G2CharsetMode
+  /** Sprite projects only; ignored otherwise. Defaults to 8 (8×8 patterns). */
+  spriteSize?: SpriteSize
 }
 
 export function blankPattern(): number[] {
@@ -52,6 +58,9 @@ function defaultColors(type: ProjectType, charsets: number): ProjectColors {
     case 'multicolor':
       // No colour table — every 4×4 block's colour lives in the screen grid.
       return {}
+    case 'sprite':
+      // One solid colour per pattern slot; 16×16 sprites read the quad base.
+      return { sprites: Array.from({ length: SPRITE_PATTERN_COUNT }, () => DEFAULT_SPRITE_COLOR) }
   }
 }
 
@@ -64,8 +73,13 @@ export function createProject(options: CreateProjectOptions): Project {
   const settings: ProjectSettings = {}
   if (g2CharsetMode) settings.g2CharsetMode = g2CharsetMode
   if (type === 'multicolor') settings.backdrop = DEFAULT_BACKDROP
+  if (type === 'sprite') {
+    settings.backdrop = DEFAULT_BACKDROP
+    settings.spriteSize = options.spriteSize ?? 8
+    settings.spriteMag = 1
+  }
 
-  return {
+  const project: Project = {
     version: 1,
     id: crypto.randomUUID(),
     name,
@@ -75,8 +89,17 @@ export function createProject(options: CreateProjectOptions): Project {
     settings,
     charsets: Array.from({ length: sets }, blankCharset),
     colors: defaultColors(type, sets),
-    // Multicolor cells are palette indices (0 = transparent → backdrop); other
-    // modes fill with character code 0.
-    screens: [{ name: 'Screen 1', cells: Array.from({ length: MODES[type].cellCount }, () => 0) }],
+    // Sprite projects have no screen (Decision 28). Multicolor cells are palette
+    // indices (0 = transparent → backdrop); other modes fill with char code 0.
+    screens:
+      type === 'sprite'
+        ? []
+        : [{ name: 'Screen 1', cells: Array.from({ length: MODES[type].cellCount }, () => 0) }],
   }
+
+  if (type === 'sprite') {
+    project.animations = [{ name: 'Animation 1', frames: [0], fps: DEFAULT_FPS }]
+  }
+
+  return project
 }

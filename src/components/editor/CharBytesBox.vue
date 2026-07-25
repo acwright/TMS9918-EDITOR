@@ -4,15 +4,19 @@ import { Check, Copy } from 'lucide-vue-next'
 import AppButton from '@/components/base/AppButton.vue'
 import { formatBytes, parseBytes, type ByteRadix } from '@/domain/bytes'
 import { useEditorStore } from '@/stores/editor'
-import type { CharPattern } from '@/domain/types'
 
-const props = defineProps<{ pattern: CharPattern }>()
+/**
+ * The bytes of whatever is being edited: a character's 8 pattern bytes, or a
+ * sprite's 8 (8×8) / 32 (16×16) bytes in hardware order. Paste must supply the
+ * same count, so `bytes.length` is the parse target.
+ */
+const props = defineProps<{ bytes: number[] }>()
 
 const editor = useEditorStore()
 
 // Display radix is local view state; paste-parsing infers its own radix.
 const radix = ref<ByteRadix>('hex')
-const formatted = computed(() => formatBytes(props.pattern, radix.value))
+const formatted = computed(() => formatBytes(props.bytes, radix.value))
 
 // `draft` mirrors the formatted bytes except while the field is being edited,
 // so external changes (drawing, undo, char switch) keep it in sync.
@@ -35,12 +39,12 @@ function onPaste() {
   setTimeout(commit, 0)
 }
 
-/** Parse the draft and, if it's 8 clean bytes, set the character. */
+/** Parse the draft and, if it's the right run of clean bytes, apply it. */
 function commit() {
   editing.value = false
-  const bytes = parseBytes(draft.value)
+  const bytes = parseBytes(draft.value, props.bytes.length)
   if (bytes) {
-    editor.setCharPattern(bytes)
+    editor.setPatternBytes(bytes)
     invalid.value = false
   } else {
     invalid.value = true
@@ -75,7 +79,7 @@ async function copy() {
         spellcheck="false"
         autocapitalize="off"
         autocomplete="off"
-        aria-label="Character bytes — paste hex or decimal to set the character"
+        aria-label="Pattern bytes — paste hex or decimal to overwrite"
         class="h-9 min-w-0 flex-1 rounded-sm border bg-ink-900 px-2 font-mono text-[11px] whitespace-nowrap text-ink-300 transition-colors focus:outline-none"
         :class="
           invalid

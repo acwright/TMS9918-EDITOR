@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PixelEditor from '../PixelEditor.vue'
 
-const WHITE = { fg: 15, bg: 1 }
-const rowColors = Array.from({ length: 8 }, () => WHITE)
-
-/** Mount with the grid rect stubbed to a fixed 80×80 box (8 × 10px cells). */
-function mountEditor(pattern: number[] = Array.from({ length: 8 }, () => 0)) {
-  const wrapper = mount(PixelEditor, { props: { pattern, rowColors } })
+/**
+ * Mount with the grid rect stubbed to a fixed 80×80 box — 10px cells at 8×8,
+ * 5px cells at 16×16.
+ */
+function mountEditor(options: { pixels?: boolean[]; size?: number } = {}) {
+  const size = options.size ?? 8
+  const pixels = options.pixels ?? Array.from({ length: size * size }, () => false)
+  const colors = pixels.map((on) => (on ? 15 : 1))
+  const wrapper = mount(PixelEditor, { props: { pixels, colors, size } })
   const grid = wrapper.get('[aria-label^="Pixel editor"]').element as HTMLElement
   vi.spyOn(grid, 'getBoundingClientRect').mockReturnValue({
     left: 0,
@@ -60,10 +63,17 @@ describe('PixelEditor', () => {
   })
 
   it('right-button drags erase', () => {
-    const filled = Array.from({ length: 8 }, () => 0xff)
-    const { wrapper, grid } = mountEditor(filled)
+    const { wrapper, grid } = mountEditor({ pixels: Array.from({ length: 64 }, () => true) })
     pointer(grid, 'pointerdown', { button: 2, clientX: 5, clientY: 5 })
     expect(wrapper.emitted('paint')?.[0]).toEqual([0, 0, false])
+  })
+
+  it('toggles against the pixel already under the pointer', () => {
+    const pixels = Array.from({ length: 64 }, () => false)
+    pixels[3 * 8 + 2] = true // cell (2, 3) is set
+    const { wrapper, grid } = mountEditor({ pixels })
+    pointer(grid, 'pointerdown', { button: 0, clientX: 25, clientY: 35 })
+    expect(wrapper.emitted('paint')?.[0]).toEqual([2, 3, false])
   })
 
   it('ends the stroke on pointerup', () => {
@@ -71,5 +81,43 @@ describe('PixelEditor', () => {
     pointer(grid, 'pointerdown', { button: 0, clientX: 5, clientY: 5 })
     window.dispatchEvent(new Event('pointerup'))
     expect(wrapper.emitted('strokeEnd')).toHaveLength(1)
+  })
+
+  describe('16×16 (sprites)', () => {
+    it('renders 256 cells in 16 columns', () => {
+      const { wrapper } = mountEditor({ size: 16 })
+      const grid = wrapper.get('[aria-label^="Pixel editor"]')
+      expect(grid.element.children).toHaveLength(256)
+      expect((grid.element as HTMLElement).style.gridTemplateColumns).toBe(
+        'repeat(16, minmax(0, 1fr))',
+      )
+    })
+
+    it('maps pointer coordinates to 16 cells across the same box', () => {
+      const { wrapper, grid } = mountEditor({ size: 16 })
+      // 80px / 16 = 5px cells, so (52, 37) → cell (10, 7)
+      pointer(grid, 'pointerdown', { button: 0, clientX: 52, clientY: 37 })
+      expect(wrapper.emitted('paint')?.[0]).toEqual([10, 7, true])
+    })
+
+    it('reads the pixel state with 16-wide row stride', () => {
+      const pixels = Array.from({ length: 256 }, () => false)
+      pixels[7 * 16 + 10] = true // cell (10, 7)
+      const { wrapper, grid } = mountEditor({ size: 16, pixels })
+      pointer(grid, 'pointerdown', { button: 0, clientX: 52, clientY: 37 })
+      expect(wrapper.emitted('paint')?.[0]).toEqual([10, 7, false])
+    })
+
+    it('draws the quadrant seams only when asked', () => {
+      const plain = mount(PixelEditor, {
+        props: { pixels: [], colors: [], size: 16 },
+      })
+      expect(plain.findAll('.bg-ink-300\\/40')).toHaveLength(0)
+
+      const guided = mount(PixelEditor, {
+        props: { pixels: [], colors: [], size: 16, quadrantGuides: true },
+      })
+      expect(guided.findAll('.bg-ink-300\\/40')).toHaveLength(2)
+    })
   })
 })

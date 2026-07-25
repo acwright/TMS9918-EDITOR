@@ -3,14 +3,16 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/base/AppButton.vue'
+import AnimationPanel from '@/components/editor/AnimationPanel.vue'
 import CharacterPanel from '@/components/editor/CharacterPanel.vue'
 import CharsetPicker from '@/components/editor/CharsetPicker.vue'
 import MulticolorPanel from '@/components/editor/MulticolorPanel.vue'
 import ProjectSettingsDialog from '@/components/editor/ProjectSettingsDialog.vue'
 import ScreenPanel from '@/components/editor/ScreenPanel.vue'
-import * as charOps from '@/domain/charOps'
+import SpritePanel from '@/components/editor/SpritePanel.vue'
+import SpritePicker from '@/components/editor/SpritePicker.vue'
 import { MODES } from '@/domain/modes'
-import { useEditorStore } from '@/stores/editor'
+import { useEditorStore, type TransformName } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
 
 const props = defineProps<{ projectId: string }>()
@@ -37,16 +39,28 @@ const showSettings = ref(false)
 // so it skips the Character panel and the responsive tab split entirely (§10 Decision 10).
 const isMulticolor = computed(() => store.current?.type === 'multicolor')
 
+// Sprite mode has no screen at all: sprite editor + picker on the left, the
+// animation preview on the right (§14 Decision 28).
+const isSprite = computed(() => store.current?.type === 'sprite')
+
 // Below lg the two columns become tabs (side by side at lg+ regardless)
 const activeTab = ref<'character' | 'screen'>('character')
 
-// Character shifts on Alt+Arrows (plain arrows are left for future cursor use;
-// Alt also avoids hijacking browser Back on Windows)
-const ALT_SHIFTS: Record<string, [string, (p: number[]) => number[]]> = {
-  ArrowLeft: ['Shift Left', charOps.shiftLeft],
-  ArrowRight: ['Shift Right', charOps.shiftRight],
-  ArrowUp: ['Shift Up', charOps.shiftUp],
-  ArrowDown: ['Shift Down', charOps.shiftDown],
+/** Tab labels differ in sprite mode, where the columns aren't character/screen. */
+const tabLabels = computed(() =>
+  isSprite.value
+    ? { character: 'Sprite', screen: 'Preview' }
+    : { character: 'Character', screen: 'Screen' },
+)
+
+// Pattern shifts on Alt+Arrows (plain arrows are left for future cursor use;
+// Alt also avoids hijacking browser Back on Windows). `applyTransform` routes
+// to charOps or spriteOps depending on the open mode.
+const ALT_SHIFTS: Record<string, TransformName> = {
+  ArrowLeft: 'shiftLeft',
+  ArrowRight: 'shiftRight',
+  ArrowUp: 'shiftUp',
+  ArrowDown: 'shiftDown',
 }
 
 /** Global shortcut map (documented in README). */
@@ -80,7 +94,7 @@ function onKeydown(event: KeyboardEvent) {
     const shift = ALT_SHIFTS[event.key]
     if (shift) {
       event.preventDefault()
-      editor.transform(shift[0], shift[1])
+      editor.applyTransform(shift)
     }
     return
   }
@@ -90,48 +104,62 @@ function onKeydown(event: KeyboardEvent) {
       router.push('/')
       return
     case '[':
-      editor.selectChar(editor.selectedChar - 1)
+      // Sprite mode steps through sprite slots; every other mode, characters.
+      if (isSprite.value) editor.selectSprite(editor.selectedSprite - 1)
+      else editor.selectChar(editor.selectedChar - 1)
       return
     case ']':
-      editor.selectChar(editor.selectedChar + 1)
+      if (isSprite.value) editor.selectSprite(editor.selectedSprite + 1)
+      else editor.selectChar(editor.selectedChar + 1)
       return
     case ',':
-      editor.selectScreen(editor.selectedScreen - 1)
+      // Sprite mode paginates animations where the others paginate screens.
+      if (isSprite.value) editor.selectAnimation(editor.selectedAnimation - 1)
+      else editor.selectScreen(editor.selectedScreen - 1)
       return
     case '.':
-      editor.selectScreen(editor.selectedScreen + 1)
+      if (isSprite.value) editor.selectAnimation(editor.selectedAnimation + 1)
+      else editor.selectScreen(editor.selectedScreen + 1)
+      return
+    case ' ':
+      if (isSprite.value) {
+        event.preventDefault() // Space would otherwise scroll the panel
+        editor.togglePlaying()
+      }
       return
     case '+':
     case '=':
-      editor.zoomScreen(1)
+      // Sprite mode zooms the animation preview; every other mode, the screen.
+      if (isSprite.value) editor.zoomPreview(1)
+      else editor.zoomScreen(1)
       return
     case '-':
-      editor.zoomScreen(-1)
+      if (isSprite.value) editor.zoomPreview(-1)
+      else editor.zoomScreen(-1)
       return
   }
 
   switch (event.key.toLowerCase()) {
     case 'g':
-      editor.toggleGrid()
+      if (!isSprite.value) editor.toggleGrid()
       return
     case 'f':
-      editor.transform('Fill', () => charOps.fill())
+      editor.applyTransform('fill')
       return
     case 'c':
-      editor.transform('Clear', () => charOps.clear())
+      editor.applyTransform('clear')
       return
     case 'i':
-      editor.transform('Invert', charOps.invert)
+      editor.applyTransform('invert')
       return
     case 'h':
-      editor.transform('Flip Horizontal', charOps.flipH)
+      editor.applyTransform('flipH')
       return
     case 'v':
-      editor.transform('Flip Vertical', charOps.flipV)
+      editor.applyTransform('flipV')
       return
     case 'r':
-      if (event.shiftKey) editor.transform('Rotate Left', charOps.rotateLeft)
-      else editor.transform('Rotate Right', charOps.rotateRight)
+      editor.applyTransform(event.shiftKey ? 'rotateLeft' : 'rotateRight')
       return
   }
 }
@@ -180,6 +208,45 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </div>
     </main>
 
+    <!-- Sprite: sprite editor + picker on the left, animation preview on the right.
+         Same two-column/tabbed shape as the character modes, no screen anywhere. -->
+    <main v-else-if="store.current && isSprite" class="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <div class="flex shrink-0 gap-1 border-b border-ink-800 p-2 lg:hidden">
+        <button
+          v-for="tab in ['character', 'screen'] as const"
+          :key="tab"
+          type="button"
+          class="font-display flex-1 rounded-sm border py-2 text-sm tracking-wider transition-colors"
+          :class="
+            activeTab === tab
+              ? 'border-ink-300 bg-ink-100 text-ink-950'
+              : 'border-ink-700 bg-ink-850 text-ink-300'
+          "
+          @click="activeTab = tab"
+        >
+          {{ tabLabels[tab] }}
+        </button>
+      </div>
+
+      <aside
+        class="min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-4 lg:flex lg:flex-none lg:shrink-0 lg:border-r lg:border-ink-800"
+        :class="activeTab === 'character' ? 'flex' : 'hidden'"
+      >
+        <SpritePanel class="mx-auto shrink-0 lg:mx-0" />
+        <hr class="shrink-0 border-ink-800" />
+        <SpritePicker @open-settings="showSettings = true" />
+      </aside>
+
+      <div
+        class="min-h-0 min-w-0 flex-1 overflow-auto p-4 lg:flex"
+        :class="activeTab === 'screen' ? 'flex' : 'hidden'"
+      >
+        <AnimationPanel />
+      </div>
+
+      <ProjectSettingsDialog v-model="showSettings" />
+    </main>
+
     <main v-else-if="store.current" class="flex min-h-0 flex-1 flex-col lg:flex-row">
       <!-- Mobile/portrait tab switcher (hidden once both columns fit side by side) -->
       <div class="flex shrink-0 gap-1 border-b border-ink-800 p-2 lg:hidden">
@@ -195,7 +262,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           "
           @click="activeTab = tab"
         >
-          {{ tab === 'character' ? 'Character' : 'Screen' }}
+          {{ tabLabels[tab] }}
         </button>
       </div>
 

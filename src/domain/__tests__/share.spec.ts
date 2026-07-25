@@ -9,18 +9,21 @@ import {
   shareUrl,
 } from '../share'
 import { isGraphics2Colors } from '../types'
-import type { ProjectType } from '../types'
+import { PROJECT_TYPES } from '../modes'
 
 describe('share links', () => {
-  it.each(['text', 'graphics1', 'graphics2', 'multicolor'] as ProjectType[])(
-    'round-trips a %s project',
-    async (type) => {
-      const project = createProject({ name: `Share ${type}`, type })
+  it.each(PROJECT_TYPES)('round-trips a %s project', async (type) => {
+    const project = createProject({ name: `Share ${type}`, type })
+    if (type === 'sprite') {
+      // Sprite projects have no screen; their payload is patterns + animations.
+      project.charsets[0]![0] = [0x3c, 0x42, 0x81, 0xa5, 0x81, 0x99, 0x42, 0x3c]
+      project.animations = [{ name: 'Blink', frames: [0, 1, 0], fps: 6 }]
+    } else {
       project.screens[0]!.cells[10] = type === 'multicolor' ? 7 : 65
-      const decoded = await decodeShare(await encodeShare(project))
-      expect(decoded).toEqual(project)
-    },
-  )
+    }
+    const decoded = await decodeShare(await encodeShare(project))
+    expect(decoded).toEqual(project)
+  })
 
   it('compresses gzip-scheme payloads well below the raw JSON size', async () => {
     const project = createProject({

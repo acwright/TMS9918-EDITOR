@@ -5,8 +5,10 @@ import {
   isGraphics1Colors,
   isGraphics2Colors,
   isMulticolorColors,
+  isSpriteColors,
   isTextColors,
 } from '../types'
+import { SPRITE_PATTERN_COUNT } from '../sprites'
 
 describe('factory', () => {
   it('blankPattern is 8 zero bytes', () => {
@@ -75,6 +77,43 @@ describe('factory', () => {
     expect(p.screens).toHaveLength(1)
     expect(p.screens[0]?.cells).toEqual(Array.from({ length: MODES.multicolor.cellCount }, () => 0))
     expect(MODES.multicolor.cellCount).toBe(3072)
+  })
+
+  it('creates an 8×8 sprite project with one pattern table and no screens', () => {
+    const p = createProject({ name: 'SP', type: 'sprite' })
+    expect(p.type).toBe('sprite')
+    expect(p.charsets).toHaveLength(1)
+    expect(p.charsets[0]).toHaveLength(CHAR_COUNT)
+    expect(p.settings).toEqual({ backdrop: 1, spriteSize: 8, spriteMag: 1 })
+    expect(p.screens).toEqual([])
+    if (!isSpriteColors(p.colors)) throw new Error('expected sprite colors')
+    expect(p.colors.sprites).toHaveLength(SPRITE_PATTERN_COUNT)
+    expect(p.colors.sprites.every((c) => c === 15)).toBe(true)
+    expect(p.animations).toEqual([{ name: 'Animation 1', frames: [0], fps: 8 }])
+  })
+
+  it('honours the requested sprite size', () => {
+    const p = createProject({ name: 'SP16', type: 'sprite', spriteSize: 16 })
+    expect(p.settings.spriteSize).toBe(16)
+    // The pattern table is the same size either way — only the grouping changes.
+    expect(p.charsets[0]).toHaveLength(CHAR_COUNT)
+  })
+
+  it('does not narrow sprite colors as multicolor', () => {
+    const p = createProject({ name: 'SP', type: 'sprite' })
+    expect(isSpriteColors(p.colors)).toBe(true)
+    expect(isMulticolorColors(p.colors)).toBe(false)
+  })
+
+  it('adds animations only to sprite projects', () => {
+    for (const type of ['text', 'graphics1', 'graphics2', 'multicolor'] as const) {
+      expect(createProject({ name: type, type }).animations).toBeUndefined()
+    }
+  })
+
+  it('ignores spriteSize for non-sprite modes', () => {
+    const p = createProject({ name: 'T', type: 'text', spriteSize: 16 })
+    expect(p.settings).toEqual({})
   })
 
   it('ignores g2CharsetMode for non-graphics2 modes', () => {

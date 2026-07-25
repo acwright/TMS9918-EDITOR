@@ -5,12 +5,15 @@ import { isGraphics1Colors, isGraphics2Colors, isTextColors } from '@/domain/typ
 import { useEditorStore } from '../editor'
 import { useProjectsStore } from '../projects'
 
-function setup(type: 'text' | 'graphics1' | 'graphics2' | 'multicolor' = 'graphics1') {
+function setup(
+  type: 'text' | 'graphics1' | 'graphics2' | 'multicolor' | 'sprite' = 'graphics1',
+  options: { spriteSize?: 8 | 16 } = {},
+) {
   localStorage.clear()
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'Test', type })!
+  const project = projects.create({ name: 'Test', type, spriteSize: options.spriteSize })!
   projects.open(project.id)
   editor.reset()
   return { projects, editor }
@@ -424,6 +427,409 @@ describe('editor store', () => {
       const text = setup('text')
       text.editor.setBackdrop(5)
       expect(text.editor.canUndo).toBe(false)
+    })
+  })
+
+  describe('sprites (Phase 26)', () => {
+    it('exposes size-dependent slot counts and a grid of the right size', () => {
+      const eight = setup('sprite', { spriteSize: 8 })
+      expect(eight.editor.isSprite).toBe(true)
+      expect(eight.editor.spriteSize).toBe(8)
+      expect(eight.editor.spriteSlots).toBe(256)
+      expect(eight.editor.currentSpriteGrid).toHaveLength(8)
+      expect(eight.editor.currentSpriteBytes).toHaveLength(8)
+
+      const sixteen = setup('sprite', { spriteSize: 16 })
+      expect(sixteen.editor.spriteSlots).toBe(64)
+      expect(sixteen.editor.currentSpriteGrid).toHaveLength(16)
+      expect(sixteen.editor.currentSpriteBytes).toHaveLength(32)
+    })
+
+    it('selectSprite clamps to the slot range rather than wrapping', () => {
+      const { editor } = setup('sprite', { spriteSize: 16 })
+      editor.selectSprite(-1)
+      expect(editor.selectedSprite).toBe(0)
+      editor.selectSprite(999)
+      expect(editor.selectedSprite).toBe(63)
+    })
+
+    it('paints a 16×16 pixel into the correct hardware quadrant, undoably', () => {
+      const { projects, editor } = setup('sprite', { spriteSize: 16 })
+      editor.selectSprite(1) // patterns 4–7
+      editor.beginStroke('Draw')
+      editor.paintPixel(8, 8, true) // bottom-right quadrant → pattern 7
+      editor.endStroke()
+
+      const charset = projects.current!.charsets[0]!
+      expect(charset[7]?.[0]).toBe(0x80)
+      expect(charset[4]?.[0]).toBe(0) // other quadrants untouched
+      expect(charset[5]?.[0]).toBe(0)
+      expect(charset[6]?.[0]).toBe(0)
+      expect(editor.currentSpriteGrid?.[8]?.[8]).toBe(true)
+
+      editor.undo()
+      expect(projects.current!.charsets[0]![7]?.[0]).toBe(0)
+      expect(editor.currentSpriteGrid?.[8]?.[8]).toBe(false)
+    })
+
+    it('coalesces a sprite stroke into one undo entry', () => {
+      const { editor } = setup('sprite', { spriteSize: 16 })
+      editor.beginStroke('Draw')
+      editor.paintPixel(0, 0, true)
+      editor.paintPixel(1, 0, true)
+      editor.paintPixel(9, 9, true) // a different quadrant, same stroke
+      editor.endStroke()
+
+      expect(editor.undo()).toBe('Draw')
+      expect(editor.currentSpriteGrid?.[0]?.[0]).toBe(false)
+      expect(editor.currentSpriteGrid?.[9]?.[9]).toBe(false)
+      expect(editor.canUndo).toBe(false)
+    })
+
+    it('applyTransform routes to spriteOps and covers the whole 16×16 sprite', () => {
+      const { editor } = setup('sprite', { spriteSize: 16 })
+      editor.paintPixel(2, 5, true)
+      editor.applyTransform('flipH')
+      // Flipping across the full 16-pixel span, not per 8×8 quadrant.
+      expect(editor.currentSpriteGrid?.[5]?.[13]).toBe(true)
+      expect(editor.currentSpriteGrid?.[5]?.[2]).toBe(false)
+
+      expect(editor.undo()).toBe('Flip Horizontal')
+      expect(editor.currentSpriteGrid?.[5]?.[2]).toBe(true)
+    })
+
+    it('applyTransform still drives charOps in character modes', () => {
+      const { editor } = setup('graphics1')
+      editor.applyTransform('fill')
+      expect(editor.currentPattern).toEqual(charOps.fill())
+      expect(editor.undo()).toBe('Fill')
+    })
+
+    it('sets the sprite colour at the quad base as an undoable command', () => {
+      const { projects, editor } = setup('sprite', { spriteSize: 16 })
+      editor.selectSprite(3) // patterns 12–15
+      editor.setSpriteColor(7)
+
+      const colors = projects.current!.colors as { sprites: number[] }
+      expect(editor.spriteColor).toBe(7)
+      expect(colors.sprites[12]).toBe(7)
+      expect(colors.sprites[13]).toBe(15) // siblings untouched — size changes stay lossless
+      expect(projects.saveState).toBe('unsaved')
+
+      expect(editor.undo()).toBe('Set Sprite Color')
+      expect(editor.spriteColor).toBe(15)
+    })
+
+    it('setSpriteColor no-ops on the same value, a bad index, or another mode', () => {
+      const sprite = setup('sprite')
+      sprite.editor.setSpriteColor(15) // already white
+      sprite.editor.setSpriteColor(99)
+      expect(sprite.editor.canUndo).toBe(false)
+
+      const text = setup('text')
+      text.editor.setSpriteColor(4)
+      expect(text.editor.canUndo).toBe(false)
+    })
+
+    it('groups up to 16×16 without touching pattern or colour data', () => {
+      const { projects, editor } = setup('sprite', { spriteSize: 8 })
+      editor.selectSprite(6)
+      editor.paintPixel(1, 1, true)
+      editor.setSpriteColor(9)
+      const patterns = JSON.parse(JSON.stringify(projects.current!.charsets[0]))
+      const colors = JSON.parse(JSON.stringify(projects.current!.colors))
+
+      editor.setSpriteSize(16)
+      expect(editor.spriteSize).toBe(16)
+      expect(editor.spriteSlots).toBe(64)
+      expect(projects.current!.charsets[0]).toEqual(patterns)
+      expect(projects.current!.colors).toEqual(colors)
+      // Pattern 6 now lives inside slot 1 (patterns 4–7), so the view follows it.
+      expect(editor.selectedSprite).toBe(1)
+
+      expect(editor.undo()).toBe('Use 16×16 Sprites')
+      expect(editor.spriteSize).toBe(8)
+      expect(editor.selectedSprite).toBe(6)
+      expect(projects.current!.charsets[0]).toEqual(patterns)
+    })
+
+    it('carries the quad colour onto all four sprites when splitting back to 8×8', () => {
+      // Reproduces the smoke-test report: draw an 8×8 sprite green, switch to
+      // 16×16, fill the other three quadrants, switch back. All four 8×8
+      // sprites must still be green — not just the one that was coloured.
+      const { projects, editor } = setup('sprite', { spriteSize: 8 })
+      editor.setSpriteColor(2) // Medium Green on slot 0
+      editor.paintPixel(0, 0, true)
+
+      editor.setSpriteSize(16)
+      expect(editor.spriteColor).toBe(2) // the 16×16 sprite reads the quad base
+      editor.paintPixel(8, 0, true) // top-right quadrant  → pattern 2
+      editor.paintPixel(0, 8, true) // bottom-left         → pattern 1
+      editor.paintPixel(8, 8, true) // bottom-right        → pattern 3
+
+      editor.setSpriteSize(8)
+      const sprites = (projects.current!.colors as { sprites: number[] }).sprites
+      expect(sprites.slice(0, 4)).toEqual([2, 2, 2, 2])
+      // …and the pixels went where the hardware expects them.
+      const charset = projects.current!.charsets[0]!
+      expect(charset[1]?.[0]).toBe(0x80)
+      expect(charset[2]?.[0]).toBe(0x80)
+      expect(charset[3]?.[0]).toBe(0x80)
+    })
+
+    it('leaves untouched quads alone when splitting', () => {
+      const { projects, editor } = setup('sprite', { spriteSize: 16 })
+      editor.selectSprite(2) // patterns 8–11
+      editor.setSpriteColor(6)
+      editor.setSpriteSize(8)
+
+      const sprites = (projects.current!.colors as { sprites: number[] }).sprites
+      expect(sprites.slice(8, 12)).toEqual([6, 6, 6, 6])
+      expect(sprites.slice(0, 4)).toEqual([15, 15, 15, 15]) // still the default
+    })
+
+    it('undo restores the pre-split colour table exactly', () => {
+      const { projects, editor } = setup('sprite', { spriteSize: 8 })
+      // Four distinct 8×8 colours in one quad — the case the spread overwrites.
+      editor.selectSprite(0)
+      editor.setSpriteColor(2)
+      editor.selectSprite(1)
+      editor.setSpriteColor(4)
+      editor.selectSprite(2)
+      editor.setSpriteColor(6)
+      editor.selectSprite(3)
+      editor.setSpriteColor(8)
+
+      editor.setSpriteSize(16)
+      editor.setSpriteSize(8)
+      const spread = (projects.current!.colors as { sprites: number[] }).sprites
+      expect(spread.slice(0, 4)).toEqual([2, 2, 2, 2])
+
+      expect(editor.undo()).toBe('Use 8×8 Sprites')
+      editor.undo() // back through the 8→16 switch
+      const restored = (projects.current!.colors as { sprites: number[] }).sprites
+      expect(restored.slice(0, 4)).toEqual([2, 4, 6, 8])
+    })
+
+    it('setSpriteSize/setSpriteMag no-op on the same value or another mode', () => {
+      const sprite = setup('sprite', { spriteSize: 8 })
+      sprite.editor.setSpriteSize(8)
+      sprite.editor.setSpriteMag(1)
+      expect(sprite.editor.canUndo).toBe(false)
+
+      const text = setup('text')
+      text.editor.setSpriteSize(16)
+      text.editor.setSpriteMag(2)
+      expect(text.editor.canUndo).toBe(false)
+    })
+
+    it('sets magnification as an undoable command', () => {
+      const { projects, editor } = setup('sprite')
+      expect(editor.spriteMag).toBe(1)
+      editor.setSpriteMag(2)
+      expect(projects.current?.settings.spriteMag).toBe(2)
+      expect(editor.undo()).toBe('Magnify Sprites 2×')
+      expect(editor.spriteMag).toBe(1)
+    })
+
+    it('setPatternBytes writes all four patterns of a 16×16 sprite', () => {
+      const { projects, editor } = setup('sprite', { spriteSize: 16 })
+      const bytes = Array.from({ length: 32 }, (_, i) => i + 1)
+      editor.setPatternBytes(bytes)
+
+      const charset = projects.current!.charsets[0]!
+      expect(charset[0]).toEqual(bytes.slice(0, 8))
+      expect(charset[3]).toEqual(bytes.slice(24))
+      expect(editor.currentSpriteBytes).toEqual(bytes)
+
+      expect(editor.undo()).toBe('Set Bytes')
+      expect(charset[0]).toEqual([0, 0, 0, 0, 0, 0, 0, 0])
+    })
+
+    it('setPatternBytes rejects the wrong byte count and still sets characters', () => {
+      const sprite = setup('sprite', { spriteSize: 16 })
+      sprite.editor.setPatternBytes(Array.from({ length: 8 }, () => 0xff)) // 8 ≠ 32
+      expect(sprite.editor.canUndo).toBe(false)
+
+      const g1 = setup('graphics1')
+      g1.editor.setPatternBytes(Array.from({ length: 8 }, () => 0xff))
+      expect(g1.editor.currentPattern).toEqual(charOps.fill())
+    })
+
+    it('shares the backdrop control with multicolor', () => {
+      const { projects, editor } = setup('sprite')
+      editor.setBackdrop(4)
+      expect(projects.current?.settings.backdrop).toBe(4)
+      expect(editor.undo()).toBe('Set Backdrop Color')
+      expect(editor.backdrop).toBe(1)
+    })
+  })
+
+  describe('animations (Phase 27)', () => {
+    it('starts on the factory animation', () => {
+      const { editor } = setup('sprite')
+      expect(editor.animationCount).toBe(1)
+      expect(editor.currentAnimation).toEqual({ name: 'Animation 1', frames: [0], fps: 8 })
+      expect(editor.selectedFrame).toBe(0)
+      expect(editor.playing).toBe(false)
+    })
+
+    it('adds, renames and deletes animations undoably, never dropping the last', () => {
+      const { editor } = setup('sprite')
+      editor.addAnimation()
+      expect(editor.animationCount).toBe(2)
+      expect(editor.selectedAnimation).toBe(1)
+
+      editor.renameAnimation(1, 'Walk')
+      expect(editor.currentAnimation?.name).toBe('Walk')
+      expect(editor.undo()).toBe('Rename Animation')
+      expect(editor.currentAnimation?.name).toBe('Animation 2')
+
+      editor.removeAnimation(1)
+      expect(editor.animationCount).toBe(1)
+      expect(editor.undo()).toBe('Delete Animation')
+      expect(editor.animationCount).toBe(2)
+
+      editor.removeAnimation(1)
+      editor.removeAnimation(0) // the last one must survive
+      expect(editor.animationCount).toBe(1)
+    })
+
+    it('appends the edited sprite as a frame and moves the playhead to it', () => {
+      const { editor } = setup('sprite', { spriteSize: 16 })
+      editor.selectSprite(5)
+      editor.addFrame()
+      expect(editor.currentAnimation?.frames).toEqual([0, 5])
+      expect(editor.selectedFrame).toBe(1)
+
+      expect(editor.undo()).toBe('Add Frame')
+      expect(editor.currentAnimation?.frames).toEqual([0])
+      expect(editor.selectedFrame).toBe(0) // clamped back into range
+    })
+
+    it('rejects a frame outside the slot range for the current size', () => {
+      const { editor } = setup('sprite', { spriteSize: 16 })
+      editor.addFrame(64) // only 0–63 exist at 16×16
+      expect(editor.currentAnimation?.frames).toEqual([0])
+      expect(editor.canUndo).toBe(false)
+    })
+
+    it('removes and reorders frames undoably', () => {
+      const { editor } = setup('sprite')
+      editor.addFrame(1)
+      editor.addFrame(2)
+      expect(editor.currentAnimation?.frames).toEqual([0, 1, 2])
+
+      editor.reorderFrame(0, 2)
+      expect(editor.currentAnimation?.frames).toEqual([1, 2, 0])
+      expect(editor.selectedFrame).toBe(2) // the playhead follows the frame
+      expect(editor.undo()).toBe('Move Frame')
+      expect(editor.currentAnimation?.frames).toEqual([0, 1, 2])
+
+      editor.removeFrame(1)
+      expect(editor.currentAnimation?.frames).toEqual([0, 2])
+      expect(editor.undo()).toBe('Remove Frame')
+      expect(editor.currentAnimation?.frames).toEqual([0, 1, 2])
+    })
+
+    it('no-ops on out-of-range frame operations', () => {
+      const { editor } = setup('sprite')
+      editor.removeFrame(9)
+      editor.reorderFrame(0, 9)
+      editor.reorderFrame(0, 0)
+      editor.setFrame(9, 3)
+      expect(editor.canUndo).toBe(false)
+    })
+
+    it('retargets an existing frame at another sprite', () => {
+      const { editor } = setup('sprite')
+      editor.setFrame(0, 12)
+      expect(editor.currentAnimation?.frames).toEqual([12])
+      expect(editor.undo()).toBe('Set Frame')
+      expect(editor.currentAnimation?.frames).toEqual([0])
+    })
+
+    it('clamps the frame rate and stores it undoably', () => {
+      const { editor } = setup('sprite')
+      editor.setAnimationFps(0, 99)
+      expect(editor.currentAnimation?.fps).toBe(30)
+      editor.setAnimationFps(0, 0)
+      expect(editor.currentAnimation?.fps).toBe(1)
+      expect(editor.undo()).toBe('Set Frame Rate')
+      expect(editor.currentAnimation?.fps).toBe(30)
+
+      editor.setAnimationFps(0, 30) // unchanged → no history entry
+      const depth = editor.canUndo
+      editor.setAnimationFps(0, 30)
+      expect(editor.canUndo).toBe(depth)
+    })
+
+    it('wraps the playhead in both directions', () => {
+      const { editor } = setup('sprite')
+      editor.addFrame(1)
+      editor.addFrame(2)
+      editor.selectFrame(0)
+
+      editor.stepFrame(1)
+      expect(editor.selectedFrame).toBe(1)
+      editor.stepFrame(-1)
+      expect(editor.selectedFrame).toBe(0)
+      editor.stepFrame(-1)
+      expect(editor.selectedFrame).toBe(2) // wraps to the end
+      editor.stepFrame(1)
+      expect(editor.selectedFrame).toBe(0)
+    })
+
+    it('refuses to play below two frames', () => {
+      const { editor } = setup('sprite')
+      expect(editor.frameCount).toBe(1)
+      editor.setPlaying(true)
+      expect(editor.playing).toBe(false)
+
+      editor.addFrame(1)
+      editor.togglePlaying()
+      expect(editor.playing).toBe(true)
+      editor.togglePlaying()
+      expect(editor.playing).toBe(false)
+    })
+
+    it('previews the current frame, falling back to the edited sprite when empty', () => {
+      const { editor } = setup('sprite')
+      editor.addFrame(7)
+      editor.selectFrame(1)
+      expect(editor.previewSlot).toBe(7)
+
+      editor.removeFrame(1)
+      editor.removeFrame(0) // no frames left
+      editor.selectSprite(3)
+      expect(editor.frameCount).toBe(0)
+      expect(editor.previewSlot).toBe(3)
+    })
+
+    it('selecting an animation resets the playhead', () => {
+      const { editor } = setup('sprite')
+      editor.addFrame(1)
+      editor.selectFrame(1)
+      editor.addAnimation()
+      expect(editor.selectedFrame).toBe(0)
+      editor.selectAnimation(0)
+      expect(editor.selectedFrame).toBe(0)
+    })
+
+    it('leaves non-sprite projects without animations alone', () => {
+      const { projects, editor } = setup('graphics1')
+      editor.addAnimation()
+      editor.addFrame(2)
+      expect(projects.current?.animations).toBeUndefined()
+      expect(editor.animationCount).toBe(0)
+      expect(editor.canUndo).toBe(false)
+    })
+
+    it('keeps every animation edit in the project file', () => {
+      const { projects, editor } = setup('sprite')
+      editor.addFrame(4)
+      expect(projects.saveState).toBe('unsaved')
+      expect(projects.current?.animations?.[0]?.frames).toEqual([0, 4])
     })
   })
 

@@ -13,6 +13,10 @@ import {
   segmentsToAsm,
   segmentsToBasic,
   segmentsToBinary,
+  spriteColorBytes,
+  spriteFrameBytes,
+  spritePatternBytes,
+  spriteSegments,
   type ByteSegment,
 } from '../export'
 import { MC_COLUMNS } from '../multicolor'
@@ -132,6 +136,117 @@ describe('multicolorScreenSegments', () => {
     project.screens[0]!.cells[MC_COLUMNS] = 9 // block (0,1)
     const segs = screenSegments(project, [0])
     expect(segs.map((s) => s.label)).toEqual(['mc_patterns', 'mc_names'])
+  })
+})
+
+describe('spriteSegments', () => {
+  const sprite = (size: 8 | 16 = 16) => createProject({ name: 'S', type: 'sprite', spriteSize: size })
+  const ALL = { patterns: true, colors: true, animations: [] as number[] }
+
+  it('emits the full 2048-byte pattern table, unreordered', () => {
+    const project = sprite(16)
+    // Slot 1 = patterns 4–7; write the bottom-right quadrant (pattern 7).
+    project.charsets[0]![7] = [0x80, 0, 0, 0, 0, 0, 0, 0]
+    const [patterns] = spriteSegments(project, ALL)
+
+    expect(patterns!.label).toBe('sprite_patterns')
+    expect(patterns!.bytes).toHaveLength(2048)
+    expect(patterns!.perLine).toBe(8)
+    // Byte order is hardware order, so pattern 7 starts at offset 56.
+    expect(patterns!.bytes[56]).toBe(0x80)
+    expect(spritePatternBytes(project)).toEqual(patterns!.bytes)
+  })
+
+  it('emits one colour byte per slot — 256 at 8×8, 64 at 16×16', () => {
+    const eight = sprite(8)
+    expect(spriteColorBytes(eight)).toHaveLength(256)
+
+    const sixteen = sprite(16)
+    const colors = sixteen.colors as { sprites: number[] }
+    colors.sprites[4] = 2 // slot 1's quad base
+    colors.sprites[5] = 9 // sibling — must not be emitted
+    const bytes = spriteColorBytes(sixteen)
+    expect(bytes).toHaveLength(64)
+    expect(bytes[1]).toBe(2)
+  })
+
+  it('masks the colour byte to the low nibble, leaving the early-clock bit clear', () => {
+    const project = sprite(8)
+    const colors = project.colors as { sprites: number[] }
+    colors.sprites[0] = 15
+    const [, colorSeg] = spriteSegments(project, ALL)
+    expect(colorSeg!.label).toBe('sprite_colors')
+    expect(colorSeg!.bytes[0]).toBe(0x0f)
+    expect(colorSeg!.bytes.every((b) => (b & 0x80) === 0)).toBe(true)
+  })
+
+  it('emits animation frames as SAT pattern names (slot × 4 at 16×16)', () => {
+    const project = sprite(16)
+    project.animations = [{ name: 'Walk Cycle', frames: [0, 1, 2, 1], fps: 12 }]
+    const segs = spriteSegments(project, { ...ALL, animations: [0] })
+    const anim = segs[segs.length - 1]!
+
+    expect(anim.label).toBe('sprite_anim_walk_cycle')
+    expect(anim.bytes).toEqual([0, 4, 8, 4])
+    expect(anim.description).toContain('4 frames @ 12 fps')
+  })
+
+  it('emits the slot itself as the pattern name at 8×8', () => {
+    const project = sprite(8)
+    project.animations = [{ name: 'A', frames: [0, 5, 200], fps: 8 }]
+    expect(spriteFrameBytes(project, 0)).toEqual([0, 5, 200])
+  })
+
+  it('skips empty animations rather than emitting a zero-byte segment', () => {
+    const project = sprite(8)
+    project.animations = [
+      { name: 'Empty', frames: [], fps: 8 },
+      { name: 'Real', frames: [1], fps: 8 },
+    ]
+    const segs = spriteSegments(project, { ...ALL, animations: [0, 1] })
+    expect(segs.map((s) => s.label)).toEqual([
+      'sprite_patterns',
+      'sprite_colors',
+      'sprite_anim_real',
+    ])
+  })
+
+  it('de-duplicates labels when animations slugify the same', () => {
+    const project = sprite(8)
+    project.animations = [
+      { name: 'Walk', frames: [1], fps: 8 },
+      { name: 'walk!', frames: [2], fps: 8 },
+      { name: 'WALK', frames: [3], fps: 8 },
+    ]
+    const segs = spriteSegments(project, { patterns: false, colors: false, animations: [0, 1, 2] })
+    expect(segs.map((s) => s.label)).toEqual([
+      'sprite_anim_walk',
+      'sprite_anim_walk_2',
+      'sprite_anim_walk_3',
+    ])
+  })
+
+  it('honours the table toggles', () => {
+    const project = sprite(8)
+    project.animations = [{ name: 'A', frames: [1], fps: 8 }]
+    expect(
+      spriteSegments(project, { patterns: false, colors: true, animations: [] }).map((s) => s.label),
+    ).toEqual(['sprite_colors'])
+    expect(
+      spriteSegments(project, { patterns: true, colors: false, animations: [0] }).map(
+        (s) => s.label,
+      ),
+    ).toEqual(['sprite_patterns', 'sprite_anim_a'])
+    expect(spriteSegments(project, { patterns: false, colors: false, animations: [] })).toEqual([])
+  })
+
+  it('renders through the existing assembly pipeline with label casing', () => {
+    const project = sprite(16)
+    project.animations = [{ name: 'Walk', frames: [1], fps: 8 }]
+    const segs = spriteSegments(project, { patterns: true, colors: false, animations: [0] })
+    const out = segmentsToAsm(segs, ASM_DIALECTS.ca65, 'S', { labelCase: 'pascal' })
+    expect(out).toContain('SpritePatterns:')
+    expect(out).toContain('SpriteAnimWalk:')
   })
 })
 

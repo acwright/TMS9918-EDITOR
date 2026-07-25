@@ -5,9 +5,10 @@
  * message identifying what is wrong.
  */
 
-import type { ColorPair, G2CharsetMode, Project, ProjectType } from './types'
+import type { ColorPair, G2CharsetMode, Project, ProjectType, SpriteSize } from './types'
 import { CHAR_BYTES, CHAR_COUNT, COLOR_GROUP_COUNT, MODES, charsetCount } from './modes'
 import { isValidColorIndex } from './palette'
+import { MAX_FPS, MIN_FPS, SPRITE_PATTERN_COUNT, spriteCount } from './sprites'
 
 export class ProjectValidationError extends Error {
   constructor(message: string) {
@@ -50,9 +51,15 @@ export function validateProject(data: unknown): Project {
     fail('Project "name" must be a non-empty string.')
   }
   const type = p.type
-  if (type !== 'text' && type !== 'graphics1' && type !== 'graphics2' && type !== 'multicolor') {
+  if (
+    type !== 'text' &&
+    type !== 'graphics1' &&
+    type !== 'graphics2' &&
+    type !== 'multicolor' &&
+    type !== 'sprite'
+  ) {
     fail(
-      `Project "type" must be "text", "graphics1", "graphics2", or "multicolor" (got ${JSON.stringify(type)}).`,
+      `Project "type" must be "text", "graphics1", "graphics2", "multicolor", or "sprite" (got ${JSON.stringify(type)}).`,
     )
   }
   if (typeof p.createdAt !== 'string' || Number.isNaN(Date.parse(p.createdAt))) {
@@ -62,16 +69,22 @@ export function validateProject(data: unknown): Project {
     fail('Project "modifiedAt" must be an ISO-8601 date string.')
   }
 
-  const g2CharsetMode = validateSettings(type, p.settings)
+  const { g2CharsetMode, spriteSize } = validateSettings(type, p.settings)
   const sets = charsetCount(type, g2CharsetMode)
   validateCharsets(p.charsets, sets)
   validateColors(type, sets, p.colors)
   validateScreens(type, p.screens)
+  validateAnimations(type, spriteSize, p.animations)
 
   return data as Project
 }
 
-function validateSettings(type: ProjectType, settings: unknown): G2CharsetMode | undefined {
+interface ValidatedSettings {
+  g2CharsetMode?: G2CharsetMode
+  spriteSize?: SpriteSize
+}
+
+function validateSettings(type: ProjectType, settings: unknown): ValidatedSettings {
   if (typeof settings !== 'object' || settings === null || Array.isArray(settings)) {
     fail('Project "settings" must be an object.')
   }
@@ -80,14 +93,26 @@ function validateSettings(type: ProjectType, settings: unknown): G2CharsetMode |
     if (!isValidColorIndex(s.backdrop)) {
       fail('Multicolor projects require "settings.backdrop" (palette index 0–15).')
     }
-    return undefined
+    return {}
   }
-  if (type !== 'graphics2') return undefined
+  if (type === 'sprite') {
+    if (!isValidColorIndex(s.backdrop)) {
+      fail('Sprite projects require "settings.backdrop" (palette index 0–15).')
+    }
+    if (s.spriteSize !== 8 && s.spriteSize !== 16) {
+      fail('Sprite projects require "settings.spriteSize" of 8 or 16.')
+    }
+    if (s.spriteMag !== 1 && s.spriteMag !== 2) {
+      fail('Sprite projects require "settings.spriteMag" of 1 or 2.')
+    }
+    return { spriteSize: s.spriteSize }
+  }
+  if (type !== 'graphics2') return {}
   const mode = s.g2CharsetMode
   if (mode !== 'mirrored' && mode !== 'independent') {
     fail('Graphics II projects require "settings.g2CharsetMode" of "mirrored" or "independent".')
   }
-  return mode
+  return { g2CharsetMode: mode }
 }
 
 function validateCharsets(charsets: unknown, expectedSets: number): void {
@@ -146,8 +171,17 @@ function validateColors(type: ProjectType, sets: number, colors: unknown): void 
       break
     case 'multicolor':
       // No colour table — colour lives per-cell in the screen grid.
-      if ('fg' in c || 'groups' in c || 'rows' in c) {
+      if ('fg' in c || 'groups' in c || 'rows' in c || 'sprites' in c) {
         fail('Multicolor "colors" must be an empty object.')
+      }
+      break
+    case 'sprite':
+      if (
+        !Array.isArray(c.sprites) ||
+        c.sprites.length !== SPRITE_PATTERN_COUNT ||
+        !c.sprites.every(isValidColorIndex)
+      ) {
+        fail(`Sprite colors must be { sprites } with ${SPRITE_PATTERN_COUNT} palette indices 0–15.`)
       }
       break
     case 'graphics2': {
@@ -177,7 +211,14 @@ function validateColors(type: ProjectType, sets: number, colors: unknown): void 
 }
 
 function validateScreens(type: ProjectType, screens: unknown): void {
-  const { cellCount } = MODES[type]
+  const { cellCount, hasScreen } = MODES[type]
+  // Sprites are an overlay layer, not a screen document (Decision 28).
+  if (!hasScreen) {
+    if (!Array.isArray(screens) || screens.length !== 0) {
+      fail('Sprite projects must have an empty "screens" array.')
+    }
+    return
+  }
   // Multicolor cells are palette indices (0–15); other modes are char codes (0–255).
   const maxCell = type === 'multicolor' ? 15 : 255
   const cellNoun = type === 'multicolor' ? 'palette indices' : 'character codes'
@@ -196,6 +237,47 @@ function validateScreens(type: ProjectType, screens: unknown): void {
       !s.cells.every((v) => isIntInRange(v, maxCell))
     ) {
       fail(`Screen ${i} "cells" must be ${cellCount} ${cellNoun} (0–${maxCell}).`)
+    }
+  })
+}
+
+/**
+ * Animations exist only on sprite projects (Decision 29). Frames are slot
+ * indices, so their upper bound follows `settings.spriteSize`.
+ */
+function validateAnimations(
+  type: ProjectType,
+  spriteSize: SpriteSize | undefined,
+  animations: unknown,
+): void {
+  if (type !== 'sprite') {
+    if (animations !== undefined) {
+      fail('Only sprite projects may carry "animations".')
+    }
+    return
+  }
+  if (!Array.isArray(animations)) {
+    fail('Sprite projects require an "animations" array.')
+  }
+  const maxSlot = spriteCount(spriteSize ?? 8) - 1
+  animations.forEach((animation, i) => {
+    if (typeof animation !== 'object' || animation === null || Array.isArray(animation)) {
+      fail(`Animation ${i} must be an object.`)
+    }
+    const a = animation as Record<string, unknown>
+    if (typeof a.name !== 'string' || a.name.length === 0) {
+      fail(`Animation ${i} "name" must be a non-empty string.`)
+    }
+    if (!Array.isArray(a.frames) || !a.frames.every((v) => isIntInRange(v, maxSlot))) {
+      fail(`Animation ${i} "frames" must be sprite slot indices (0–${maxSlot}).`)
+    }
+    if (
+      typeof a.fps !== 'number' ||
+      !Number.isInteger(a.fps) ||
+      a.fps < MIN_FPS ||
+      a.fps > MAX_FPS
+    ) {
+      fail(`Animation ${i} "fps" must be an integer between ${MIN_FPS} and ${MAX_FPS}.`)
     }
   })
 }

@@ -6,13 +6,14 @@
  * Color bytes pack as `(fg << 4) | bg`, matching the TMS9918 colour table.
  */
 
-import type { Project } from '../types'
-import { isGraphics1Colors, isTextColors } from '../types'
+import type { Project, SpriteSize } from '../types'
+import { isGraphics1Colors, isGraphics2Colors, isSpriteColors, isTextColors } from '../types'
 import { CHAR_BYTES, MODES, charsetCount } from '../modes'
 import {
   nameTableBytes as multicolorNameTable,
   patternTableBytes as multicolorPatternTable,
 } from '../multicolor'
+import { frameToPatternName, slotToPattern, spriteCount } from '../sprites'
 
 /** A labelled run of bytes — one table (or one table per charset/screen). */
 export interface ByteSegment {
@@ -47,6 +48,8 @@ export function colorTableBytes(project: Project, setIndex: number): number[] {
   const { colors } = project
   if (isTextColors(colors)) return [packNibbles(colors.fg, colors.bg)]
   if (isGraphics1Colors(colors)) return colors.groups.map((g) => packNibbles(g.fg, g.bg))
+  // Multicolor and sprite projects have no colour table of this shape.
+  if (!isGraphics2Colors(colors)) return []
   const set = colors.rows[setIndex] ?? []
   const out: number[] = []
   for (const char of set) {
@@ -117,6 +120,105 @@ export function charsetSegments(project: Project, selection: CharsetSelection): 
         perLine: project.type === 'graphics1' ? 8 : 1,
       })
     }
+  }
+
+  return segments
+}
+
+/** The project's sprite size, defaulting to 8×8 for a malformed settings block. */
+function spriteSizeOf(project: Project): SpriteSize {
+  return project.settings.spriteSize === 16 ? 16 : 8
+}
+
+/**
+ * Sprite Pattern Table: the whole 256 × 8 = 2048-byte table, already in
+ * hardware quadrant order (PLAN.md §14.3), so nothing is reordered here.
+ */
+export function spritePatternBytes(project: Project): number[] {
+  return patternTableBytes(project, 0)
+}
+
+/**
+ * One colour byte per sprite *slot* — `colour & 0x0F`, early-clock bit clear —
+ * ready to drop into Sprite Attribute Table byte 4. At 16×16 only the quad-base
+ * entries are meaningful, so the table is 64 bytes rather than 256.
+ */
+export function spriteColorBytes(project: Project): number[] {
+  const { colors } = project
+  if (!isSpriteColors(colors)) return []
+  const size = spriteSizeOf(project)
+  return Array.from(
+    { length: spriteCount(size) },
+    (_, slot) => (colors.sprites[slotToPattern(slot, size)] ?? 0) & 0x0f,
+  )
+}
+
+/**
+ * An animation's frames as SAT pattern-name bytes — `slot` at 8×8, `slot * 4`
+ * at 16×16 — so the emitted data needs no arithmetic at runtime (Decision 32).
+ */
+export function spriteFrameBytes(project: Project, animationIndex: number): number[] {
+  const size = spriteSizeOf(project)
+  const frames = project.animations?.[animationIndex]?.frames ?? []
+  return frames.map((slot) => frameToPatternName(slot, size))
+}
+
+export interface SpriteSelection {
+  patterns: boolean
+  colors: boolean
+  /** Animation indices to emit; empty (or all-empty animations) emits none. */
+  animations: number[]
+}
+
+/**
+ * Segments for a sprite export (PLAN.md §14.6): the Sprite Pattern Table, the
+ * per-slot colour table, then one frame table per selected animation. Empty
+ * animations are skipped — a zero-byte segment is noise, not data.
+ *
+ * Labels are slugified from the animation name and de-duplicated, since two
+ * animations may legitimately share a name (or slugify to the same thing) and
+ * duplicate labels would not assemble.
+ */
+export function spriteSegments(project: Project, selection: SpriteSelection): ByteSegment[] {
+  const segments: ByteSegment[] = []
+  const size = spriteSizeOf(project)
+
+  if (selection.patterns) {
+    segments.push({
+      label: 'sprite_patterns',
+      description: `Sprite pattern table (${size}×${size})`,
+      bytes: spritePatternBytes(project),
+      perLine: CHAR_BYTES,
+    })
+  }
+
+  if (selection.colors) {
+    segments.push({
+      label: 'sprite_colors',
+      description: 'Sprite colours (one byte per sprite, for attribute byte 4)',
+      bytes: spriteColorBytes(project),
+      perLine: 16,
+    })
+  }
+
+  const used = new Set<string>()
+  for (const index of selection.animations) {
+    const animation = project.animations?.[index]
+    if (!animation || animation.frames.length === 0) continue
+    let label = `sprite_anim_${labelSlug(animation.name)}`
+    if (used.has(label)) {
+      let suffix = 2
+      while (used.has(`${label}_${suffix}`)) suffix++
+      label = `${label}_${suffix}`
+    }
+    used.add(label)
+    const count = animation.frames.length
+    segments.push({
+      label,
+      description: `Animation: ${animation.name} (${count} frame${count === 1 ? '' : 's'} @ ${animation.fps} fps)`,
+      bytes: spriteFrameBytes(project, index),
+      perLine: 16,
+    })
   }
 
   return segments

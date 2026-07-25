@@ -14,13 +14,22 @@ function clone(project: Project): Project {
 
 describe('serialization', () => {
   describe('round-trip', () => {
-    it.each(['text', 'graphics1', 'graphics2', 'multicolor'] as const)(
+    it.each(['text', 'graphics1', 'graphics2', 'multicolor', 'sprite'] as const)(
       'round-trips a %s project',
       (type) => {
         const project = createProject({ name: 'RT', type })
         expect(deserializeProject(serializeProject(project))).toEqual(project)
       },
     )
+
+    it('round-trips a 16×16 sprite project with animations', () => {
+      const project = createProject({ name: 'RT', type: 'sprite', spriteSize: 16 })
+      project.animations = [
+        { name: 'Walk', frames: [0, 1, 2, 1], fps: 12 },
+        { name: 'Idle', frames: [], fps: 1 },
+      ]
+      expect(deserializeProject(serializeProject(project))).toEqual(project)
+    })
 
     it('round-trips an independent graphics2 project', () => {
       const project = createProject({ name: 'RT', type: 'graphics2', g2CharsetMode: 'independent' })
@@ -91,6 +100,80 @@ describe('serialization', () => {
       const p = clone(createProject({ name: 'X', type: 'multicolor' }))
       p.screens[0]!.cells.pop()
       expect(rejectionOf(p).message).toContain('3072')
+    })
+
+    describe('sprite projects', () => {
+      const sprite = (size: 8 | 16 = 8) =>
+        clone(createProject({ name: 'X', type: 'sprite', spriteSize: size }))
+
+      it('rejects a missing or invalid spriteSize / spriteMag / backdrop', () => {
+        const p = sprite()
+        expect(rejectionOf({ ...p, settings: { backdrop: 1, spriteMag: 1 } }).message).toContain(
+          'spriteSize',
+        )
+        expect(
+          rejectionOf({ ...p, settings: { backdrop: 1, spriteSize: 12, spriteMag: 1 } }).message,
+        ).toContain('spriteSize')
+        expect(
+          rejectionOf({ ...p, settings: { backdrop: 1, spriteSize: 8, spriteMag: 3 } }).message,
+        ).toContain('spriteMag')
+        expect(rejectionOf({ ...p, settings: { spriteSize: 8, spriteMag: 1 } }).message).toContain(
+          'backdrop',
+        )
+      })
+
+      it('rejects a colour table that is not 256 palette indices', () => {
+        const p = sprite()
+        expect(rejectionOf({ ...p, colors: {} }).message).toContain('256 palette indices')
+        expect(rejectionOf({ ...p, colors: { sprites: [15] } }).message).toContain('256')
+        const bad = sprite()
+        ;(bad.colors as { sprites: number[] }).sprites[3] = 16
+        expect(rejectionOf(bad).message).toContain('palette indices')
+      })
+
+      it('rejects any screen at all', () => {
+        const p = sprite()
+        const withScreen = { ...p, screens: [{ name: 'Screen 1', cells: [] }] }
+        expect(rejectionOf(withScreen).message).toContain('empty "screens"')
+      })
+
+      it('requires an animations array', () => {
+        const p = sprite()
+        delete p.animations
+        expect(rejectionOf(p).message).toContain('"animations"')
+      })
+
+      it('rejects malformed animations', () => {
+        const p = sprite()
+        expect(rejectionOf({ ...p, animations: [{ frames: [0], fps: 8 }] }).message).toContain(
+          '"name"',
+        )
+        expect(
+          rejectionOf({ ...p, animations: [{ name: 'A', frames: [0], fps: 0 }] }).message,
+        ).toContain('"fps"')
+        expect(
+          rejectionOf({ ...p, animations: [{ name: 'A', frames: [0], fps: 31 }] }).message,
+        ).toContain('"fps"')
+        expect(
+          rejectionOf({ ...p, animations: [{ name: 'A', frames: [1.5], fps: 8 }] }).message,
+        ).toContain('"frames"')
+      })
+
+      it('bounds frame slot indices by the project sprite size', () => {
+        const eight = sprite(8)
+        eight.animations = [{ name: 'A', frames: [255], fps: 8 }]
+        expect(validateProject(eight)).toBe(eight)
+
+        const sixteen = sprite(16)
+        sixteen.animations = [{ name: 'A', frames: [64], fps: 8 }]
+        expect(rejectionOf(sixteen).message).toContain('0–63')
+      })
+
+      it('rejects animations on non-sprite projects', () => {
+        const p = clone(createProject({ name: 'X', type: 'text' }))
+        const withAnimations = { ...p, animations: [{ name: 'A', frames: [0], fps: 8 }] }
+        expect(rejectionOf(withAnimations).message).toContain('Only sprite projects')
+      })
     })
 
     it('rejects bad dates', () => {

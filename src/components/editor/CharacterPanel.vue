@@ -36,13 +36,33 @@ const rowColors = computed(() => {
   return resolveRowColors(project, editor.selectedCharset, editor.selectedChar)
 })
 
+// PixelEditor is presentational (Phase 26): hand it the pixel states and each
+// cell's palette index rather than the pattern bytes.
+const pixels = computed(() => {
+  const pattern = editor.currentPattern
+  if (!pattern) return []
+  return Array.from({ length: 64 }, (_, i) => charOps.getPixel(pattern, i % 8, Math.floor(i / 8)))
+})
+
+const cellColors = computed(() => {
+  const pattern = editor.currentPattern
+  if (!pattern) return []
+  return Array.from({ length: 64 }, (_, i) => {
+    const y = Math.floor(i / 8)
+    const pair = rowColors.value[y]
+    return charOps.getPixel(pattern, i % 8, y) ? (pair?.fg ?? 15) : (pair?.bg ?? 1)
+  })
+})
+
 const charLabel = computed(() => {
   const code = editor.selectedChar
   return `#${code} · $${code.toString(16).toUpperCase().padStart(2, '0')}`
 })
 
 // Text Mode displays only pattern columns 0–5 (PLAN.md §4.2)
-const dimFrom = computed(() => (projects.current?.type === 'text' ? 6 : 8))
+const dimFrom = computed(() => (projects.current?.type === 'text' ? 6 : null))
+/** Wallpaper preview draws only the displayed columns. */
+const previewWidth = computed(() => dimFrom.value ?? 8)
 
 // GMII: per-row color chips beside the editor + targeted-row highlight (Decision 2)
 const isG2 = computed(() => projects.current?.type === 'graphics2')
@@ -120,8 +140,8 @@ function chipHalfStyle(index: number): { backgroundColor: string } {
       <div class="flex items-stretch gap-1.5">
         <div class="size-80">
           <PixelEditor
-            :pattern="editor.currentPattern"
-            :row-colors="rowColors"
+            :pixels="pixels"
+            :colors="cellColors"
             :dim-from="dimFrom"
             :highlight-row="isG2 ? editor.selectedRow : null"
             @stroke-start="editor.beginStroke('Draw')"
@@ -220,10 +240,10 @@ function chipHalfStyle(index: number): { backgroundColor: string } {
       <WallpaperPreview
         :pattern="editor.currentPattern"
         :row-colors="rowColors"
-        :cell-width="dimFrom"
+        :cell-width="previewWidth"
       />
     </div>
 
-    <CharBytesBox :pattern="editor.currentPattern" />
+    <CharBytesBox :bytes="editor.currentPattern" />
   </section>
 </template>

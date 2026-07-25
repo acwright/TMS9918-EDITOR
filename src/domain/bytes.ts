@@ -24,18 +24,20 @@ const LEADING_LINE_NUMBER = /^\s*\d+\s+(?=[a-z.!])/i
 const LEADING_KEYWORD = /^\s*(\.byte|\.db|dc\.b|db|data|!byte|!by)\b[\s:]*/i
 
 /**
- * Parse a pasted hex or decimal byte string into exactly {@link CHAR_BYTES}
- * bytes, or `null` if it isn't a clean run of 8 in-range values.
+ * Parse a pasted hex or decimal byte string into exactly `expected` bytes
+ * (default {@link CHAR_BYTES}), or `null` if it isn't a clean run of in-range
+ * values of that length. A 16×16 sprite passes 32 — its four hardware patterns
+ * end to end (PLAN.md §14.3).
  *
  * Tolerant of separators (comma/space/newline), `$`/`0x` prefixes, and a
  * leading `.byte`/`db`/`DATA` (with optional BASIC line number). Radix is
  * inferred: any `$`/`0x` prefix or hex letter ⇒ hex; otherwise decimal — so
  * bare digits like `60, 66` read as decimal (BASIC) and `$3C, FF` as hex.
  */
-export function parseBytes(text: string): CharPattern | null {
+export function parseBytes(text: string, expected: number = CHAR_BYTES): CharPattern | null {
   const cleaned = text.trim().replace(LEADING_LINE_NUMBER, '').replace(LEADING_KEYWORD, '')
   const tokens = cleaned.split(/[\s,]+/).filter(Boolean)
-  if (tokens.length !== CHAR_BYTES) return null
+  if (tokens.length !== expected) return null
 
   const hex = tokens.some((t) => /^(\$|0x)/i.test(t) || /[a-f]/i.test(t))
   const bytes: number[] = []

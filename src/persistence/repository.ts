@@ -9,6 +9,7 @@
 
 import type { Project, ProjectType } from '@/domain/types'
 import { validateProject } from '@/domain/serialization'
+import { isProjectType } from '@/domain/modes'
 
 export const INDEX_KEY = 'tms9918-editor:projects'
 
@@ -111,16 +112,19 @@ export function createRepository(storage: KVStorage = localStorage): ProjectRepo
   }
 }
 
+/**
+ * Index entries that fail this guard are dropped on read, so the mode list must
+ * never go stale — Round 3 hard-coded it and silently hid every saved multicolor
+ * project (PLAN.md §14.7). `isProjectType` derives from `MODES`, so a new mode
+ * is picked up automatically.
+ */
 function isSummary(value: unknown): value is ProjectSummary {
   if (typeof value !== 'object' || value === null) return false
   const s = value as Record<string, unknown>
   return (
     typeof s.id === 'string' &&
     typeof s.name === 'string' &&
-    (s.type === 'text' ||
-      s.type === 'graphics1' ||
-      s.type === 'graphics2' ||
-      s.type === 'multicolor') &&
+    isProjectType(s.type) &&
     typeof s.modifiedAt === 'string'
   )
 }

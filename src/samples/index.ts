@@ -7,10 +7,11 @@
  * which keeps the pixel data readable and easy to tweak.
  */
 
-import type { Graphics1Colors, Graphics2Colors, Project } from '@/domain/types'
+import type { Graphics1Colors, Graphics2Colors, Project, SpriteColors } from '@/domain/types'
 import { createProject } from '@/domain/factory'
 import { MODES } from '@/domain/modes'
 import { PALETTE } from '@/domain/palette'
+import { gridToPatterns, slotToPattern } from '@/domain/sprites'
 import { FONT } from './font'
 
 export interface Sample {
@@ -536,6 +537,156 @@ function multicolorSample(): Project {
   return project
 }
 
+// --- Sprite Mode: a 16×16 ship, alien and explosion with three animations ---
+
+/** 16 rows of 16 chars (`#` = pixel on) → a sprite grid. */
+function spriteArt(rows: string[]): boolean[][] {
+  return Array.from({ length: 16 }, (_, y) =>
+    Array.from({ length: 16 }, (_, x) => (rows[y]?.[x] ?? ' ') === '#'),
+  )
+}
+
+/**
+ * Write one 16×16 sprite into a slot. `gridToPatterns` handles the hardware
+ * quadrant order (TL, BL, TR, BR — PLAN.md §14.3), so the art above stays
+ * readable as a picture rather than four interleaved eighths.
+ */
+function putSprite(project: Project, slot: number, rows: string[], color: number): void {
+  const base = slotToPattern(slot, 16)
+  gridToPatterns(spriteArt(rows), 16).forEach((pattern, i) => {
+    project.charsets[0]![base + i] = pattern
+  })
+  ;(project.colors as SpriteColors).sprites[base] = color
+}
+
+/** The ship, minus its exhaust — the top 12 rows are identical in all 3 frames. */
+const SHIP_BODY = [
+  '       ##       ',
+  '      ####      ',
+  '      ####      ',
+  '     ######     ',
+  '     ######     ',
+  '    ########    ',
+  '    ########    ',
+  '   ##########   ',
+  '  ############  ',
+  ' ############## ',
+  '###  ######  ###',
+  '##   ######   ##',
+]
+
+const THRUSTS = [
+  ['      ####      ', '       ##       ', '                ', '                '],
+  ['     ######     ', '      ####      ', '       ##       ', '                '],
+  ['     ######     ', '     ######     ', '      ####      ', '       ##       '],
+]
+
+const ALIEN_BODY = [
+  '                ',
+  '   #        #   ',
+  '    #      #    ',
+  '   ##########   ',
+  '  ##  ####  ##  ',
+  ' ############## ',
+  ' ############## ',
+  ' ##  ######  ## ',
+  ' ##  ######  ## ',
+  ' ############## ',
+  '  ############  ',
+  '   ##########   ',
+]
+
+const ALIEN_LEGS = [
+  ['   ##      ##   ', '  ##        ##  ', '  #          #  ', '                '],
+  ['   ##      ##   ', '   ##      ##   ', '    ##    ##    ', '     #    #     '],
+]
+
+const EXPLOSION = [
+  [
+    '                ',
+    '                ',
+    '                ',
+    '                ',
+    '                ',
+    '                ',
+    '       ##       ',
+    '      ####      ',
+    '      ####      ',
+    '       ##       ',
+  ],
+  [
+    '                ',
+    '                ',
+    '                ',
+    '                ',
+    '       ##       ',
+    '   #  ####  #   ',
+    '    ########    ',
+    '  ############  ',
+    '  ############  ',
+    '    ########    ',
+    '   #  ####  #   ',
+    '       ##       ',
+  ],
+  [
+    '                ',
+    '                ',
+    '      #  #      ',
+    '   #  ####  #   ',
+    '  # ######## #  ',
+    ' ############## ',
+    '  ############  ',
+    '###  ######  ###',
+    '###  ######  ###',
+    '  ############  ',
+    ' ############## ',
+    '  # ######## #  ',
+    '   #  ####  #   ',
+    '      #  #      ',
+  ],
+  [
+    '                ',
+    '  #          #  ',
+    '     #    #     ',
+    '                ',
+    ' #    #  #    # ',
+    '                ',
+    '   #        #   ',
+    '                ',
+    '                ',
+    '   #        #   ',
+    '                ',
+    ' #    #  #    # ',
+    '                ',
+    '     #    #     ',
+    '  #          #  ',
+  ],
+]
+
+function spriteSample(): Project {
+  const project = createProject({ name: 'Sample — Astro Ace', type: 'sprite', spriteSize: 16 })
+
+  // Slots 0–2: the ship, one per exhaust length. Cyan.
+  THRUSTS.forEach((thrust, i) => putSprite(project, i, [...SHIP_BODY, ...thrust], 7))
+
+  // Slots 3–4: the alien's two leg poses. Medium green.
+  ALIEN_LEGS.forEach((legs, i) => putSprite(project, 3 + i, [...ALIEN_BODY, ...legs], 2))
+
+  // Slots 5–8: the explosion, cooling from light yellow through to dark red.
+  // Colour lives per sprite slot, so a frame sequence can change colour even
+  // though any single sprite is one solid colour (PLAN.md Decision 27).
+  const BURN = [11, 10, 8, 6]
+  EXPLOSION.forEach((frame, i) => putSprite(project, 5 + i, frame, BURN[i] ?? 15))
+
+  project.settings.backdrop = 1 // black — space
+  project.animations = [
+    { name: 'Thrust', frames: [0, 1, 2, 1], fps: 12 },
+    { name: 'Alien Walk', frames: [3, 4], fps: 6 },
+    { name: 'Explosion', frames: [5, 6, 7, 8], fps: 12 },
+  ]
+  return project
+}
+
 export const SAMPLES: Sample[] = [
   {
     id: 'text-greeting',
@@ -560,5 +711,11 @@ export const SAMPLES: Sample[] = [
     name: 'Vista',
     description: 'Multicolor · a 64×48 block scene + full-palette strip',
     build: multicolorSample,
+  },
+  {
+    id: 'astro-ace',
+    name: 'Astro Ace',
+    description: 'Sprite · a 16×16 ship, alien and explosion with three animations',
+    build: spriteSample,
   },
 ]

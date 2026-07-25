@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createProject } from '@/domain/factory'
+import { PROJECT_TYPES } from '@/domain/modes'
 import {
   INDEX_KEY,
   StorageQuotaError,
@@ -39,6 +40,29 @@ describe('repository', () => {
       { id: project.id, name: 'MC', type: 'multicolor', modifiedAt: project.modifiedAt },
     ])
     expect(repository.load(project.id)).toEqual(project)
+  })
+
+  it.each(PROJECT_TYPES)('lists and loads a %s project', (type) => {
+    const repository = createRepository()
+    const project = createProject({ name: 'P', type })
+    repository.save(project)
+
+    // Regression: the index summary guard hard-coded its mode list and once
+    // rejected 'multicolor', silently dropping the entry on every read
+    // (PLAN.md §14.7). It now derives from MODES, so this covers every mode.
+    expect(repository.list()).toEqual([
+      { id: project.id, name: 'P', type, modifiedAt: project.modifiedAt },
+    ])
+    expect(repository.load(project.id)).toEqual(project)
+  })
+
+  it('still drops index entries naming an unknown mode', () => {
+    const repository = createRepository()
+    localStorage.setItem(
+      INDEX_KEY,
+      JSON.stringify([{ id: 'x', name: 'Bogus', type: 'graphics3', modifiedAt: 'now' }]),
+    )
+    expect(repository.list()).toEqual([])
   })
 
   it('updates the index entry on re-save instead of duplicating it', () => {

@@ -6,7 +6,7 @@
  */
 
 import type { ColorPair, Project } from './types'
-import { isGraphics1Colors, isTextColors } from './types'
+import { isGraphics1Colors, isGraphics2Colors, isTextColors } from './types'
 import { CHAR_BYTES, COLOR_GROUP_SIZE } from './modes'
 import { PALETTE } from './palette'
 
@@ -34,6 +34,8 @@ export function resolveRowColors(
   if (isGraphics1Colors(colors)) {
     return uniform(colors.groups[Math.floor(charCode / COLOR_GROUP_SIZE)] ?? FALLBACK)
   }
+  // Multicolor and sprite projects have no per-row model and never reach here.
+  if (!isGraphics2Colors(colors)) return uniform(FALLBACK)
   const rows = colors.rows[charsetIndex]?.[charCode]
   return rows && rows.length === CHAR_BYTES ? rows.map((pair) => ({ ...pair })) : uniform(FALLBACK)
 }

@@ -20,7 +20,7 @@ export const COLOR_GROUP_COUNT = CHAR_COUNT / COLOR_GROUP_SIZE
 export interface ModeInfo {
   type: ProjectType
   label: string
-  /** Screen grid dimensions in cells. */
+  /** Screen grid dimensions in cells. Zero when the mode has no screen. */
   columns: number
   rows: number
   /** Displayed cell size in pixels. Text Mode shows only the leftmost 6 of 8 pattern columns. */
@@ -28,6 +28,12 @@ export interface ModeInfo {
   cellHeight: number
   /** columns × rows. */
   cellCount: number
+  /**
+   * Whether the mode has a screen document at all. False for sprite projects,
+   * which are an overlay layer rather than a screen (PLAN.md Decision 28).
+   * Gate on this rather than testing `cellCount === 0`.
+   */
+  hasScreen: boolean
 }
 
 export const MODES: Record<ProjectType, ModeInfo> = {
@@ -39,6 +45,7 @@ export const MODES: Record<ProjectType, ModeInfo> = {
     cellWidth: 6,
     cellHeight: 8,
     cellCount: 40 * 24,
+    hasScreen: true,
   },
   graphics1: {
     type: 'graphics1',
@@ -48,6 +55,7 @@ export const MODES: Record<ProjectType, ModeInfo> = {
     cellWidth: 8,
     cellHeight: 8,
     cellCount: 32 * 24,
+    hasScreen: true,
   },
   graphics2: {
     type: 'graphics2',
@@ -57,6 +65,7 @@ export const MODES: Record<ProjectType, ModeInfo> = {
     cellWidth: 8,
     cellHeight: 8,
     cellCount: 32 * 24,
+    hasScreen: true,
   },
   multicolor: {
     type: 'multicolor',
@@ -68,12 +77,39 @@ export const MODES: Record<ProjectType, ModeInfo> = {
     cellWidth: 4,
     cellHeight: 4,
     cellCount: 64 * 48,
+    hasScreen: true,
+  },
+  sprite: {
+    type: 'sprite',
+    label: 'Sprite Mode',
+    // Sprites overlay someone else's screen, so this mode has no screen document
+    // of its own (PLAN.md Decision 28). The cell size is the pattern size; the
+    // sprite's on-screen size follows settings.spriteSize/spriteMag.
+    columns: 0,
+    rows: 0,
+    cellWidth: 8,
+    cellHeight: 8,
+    cellCount: 0,
+    hasScreen: false,
   },
 }
 
 /**
+ * Every project type, in presentation order. Derive mode lists from this rather
+ * than hand-writing them — a stale copy in `repository.ts` silently hid saved
+ * multicolor projects in Round 3 (PLAN.md §14.7).
+ */
+export const PROJECT_TYPES = Object.keys(MODES) as ProjectType[]
+
+/** True when `value` names a project type. */
+export function isProjectType(value: unknown): value is ProjectType {
+  return typeof value === 'string' && PROJECT_TYPES.includes(value as ProjectType)
+}
+
+/**
  * Number of charsets a project carries: 0 for multicolor (no glyph data),
- * 3 for independent GMII, otherwise 1.
+ * 3 for independent GMII, otherwise 1. A sprite project's single "charset" is
+ * the 2048-byte Sprite Pattern Table (PLAN.md Decision 23).
  */
 export function charsetCount(type: ProjectType, g2CharsetMode?: G2CharsetMode): number {
   if (type === 'multicolor') return 0
