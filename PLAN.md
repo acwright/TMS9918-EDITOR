@@ -8,17 +8,16 @@ This document is the source of truth across agent sessions. **Update the checkbo
 
 ## Current Status
 
-- **Active phase:** Round 7 complete — released as `v1.4.0`: a **Sprite editor mode**, a fifth
-  project type whose pattern table *is* the hardware Sprite Pattern Table, with an 8×8 / 16×16
-  sprite editor, per-sprite colour, named frame **animations** with a live preview, and sprite
-  export. See **§14** and Phases 25–29.
-- **`v1.4.1`** is a patch on top of it (suite 409 green — see §14.9): the sample grid
-  orphaned its fifth card, and `ShareDialog` threw a temporal-dead-zone `ReferenceError` on
-  every manager visit.
-- Round 6 was `v1.3.1` (project manager layout, **§13** / Phase 24); Round 5 was `v1.3.0`
-  (label case, pointer status, share links); Round 4 was `v1.2.1` (sample refresh); Round 3
-  was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`; Round 1 / Phases 1–10 was `v1.0.0`.
-- **Last updated:** 2026-07-25
+- **Active phase:** Round 8 complete — released as `v1.5.0`: the **character set panel**
+  gains two more layouts (a fixed-size scrolling grid and a list carrying each character's
+  code), and the keyboard map becomes a **single source of truth** with a help sheet and a
+  button in both headers to open it. See **§15** and Phases 30–31.
+- Round 7 was `v1.4.0` (Sprite editor mode, **§14** / Phases 25–29), with `v1.4.1` a patch on
+  top of it (§14.9); Round 6 was `v1.3.1` (project manager layout, **§13** / Phase 24);
+  Round 5 was `v1.3.0` (label case, pointer status, share links); Round 4 was `v1.2.1`
+  (sample refresh); Round 3 was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`;
+  Round 1 / Phases 1–10 was `v1.0.0`.
+- **Last updated:** 2026-08-19
 - **Round 4 (target `v1.2.1`)** is a small patch round replacing the lacklustre Graphics I
   and II samples with proper mock game screens that showcase each mode's colour model — a
   tiled arcade platformer (**Platform Climb**) and a full-bitmap space battle
@@ -1536,3 +1535,85 @@ assertion ran. The working version installs an `app.config.errorHandler` via VTU
 `global.config` and awaits `flushPromises()` before asserting. It was confirmed to fail
 against the un-hoisted code and pass against the fix. A new `ProjectManagerView` spec also
 covers the sample-grid column binding.
+
+---
+
+## 15. Round 8 — Character Set Views & the Keyboard Map (target `v1.5.0`)
+
+Two independent pieces of polish on top of `v1.4.1`, neither of which touches the domain:
+the character set panel gets layouts that suit more than one window shape, and the keyboard
+map stops being three lists that could disagree with each other. Phases 30 and 31.
+
+### 15.1 Scope
+
+- Give the character set more than one arrangement, and remember which one the user picked.
+- Declare every shortcut once, dispatch on the action, and show the same list in the app.
+- Document the keys the modes *don't* share, rather than implying the editor is uniform.
+
+### 15.2 Decisions
+
+- **Decision 29 — three layouts, not a resizer.** Blocks (the old view) scales the set to
+  the space it has, which stops being readable on a short window. Grid fixes the glyph size
+  and scrolls; List is the index — the code in both bases, and which slots are still blank,
+  which is how you find room for a new glyph. Three named choices beat a drag handle: they
+  are one click, and they survive a reload.
+- **Decision 30 — the view is a preference, not project state.** It describes the window,
+  not the artwork, so it lives beside the export label case in `localStorage` rather than in
+  the project file — a shared project shouldn't carry the sharer's panel layout.
+- **Decision 31 — the list is a listbox, not 256 tab stops.** One roving `tabindex`, arrows
+  and PageUp/PageDown to move, and the selected row scrolls into view however the selection
+  changed — including from `[` / `]` outside the component.
+- **Decision 32 — whole-character actions belong in the header.** Fill / Clear / Invert act
+  on the character rather than on the pixel under the pointer, so they sit beside the
+  stepper; the column below is worth more to the character set. `WallpaperPreview` was
+  retired in the same move — a tiled preview of one glyph earned less than its space.
+- **Decision 33 — the keyboard map is data, and the views dispatch on the action.** Handler
+  tables are `Record<Action, () => void>`, so a key added to the map without a handler is a
+  type error rather than a dead key; the help sheet renders the map itself, and the spec
+  holds the README to it row by row. Ported from the VIC-20 editor, whose colour-slot and
+  brush-mode keys have no counterpart here and were dropped.
+- **Decision 34 — matching is mode-aware.** The modes are not the same editor. A sprite
+  project pages animations with `,` / `.`, zooms the preview with `+` / `-`, and has no grid
+  overlay; multicolor has no character panel, so the pattern keys mean nothing there. A key
+  with no meaning in the open mode does not match at all — which is also what keeps `Space`
+  away from a focused button outside sprite projects. The sheet is filtered the same way and
+  titles its sections *Sprite* / *Animation* in a sprite project.
+
+### 15.3 Phases
+
+#### Phase 30 — Character Set Views ✅
+- [x] `utils/charsetView.ts` — the three views, their hints, and the type guard.
+- [x] `CharsetGrid.vue` takes `count` and `fit`, so one component draws a half of the set
+      (scaled to height) and all of it (fixed to width, capped at 48px a glyph).
+- [x] `CharsetList.vue` / `CharsetListRow.vue` — the listbox, with the roving tabindex,
+      arrow / PageUp / PageDown / Home / End handling, and scroll-into-view on any selection
+      change (Decision 31).
+- [x] `CharsetPicker.vue` — the three-way layout radiogroup, persisted via preferences; the
+      scrolling grid keeps `[` / `]` selections in view.
+- [x] `persistence/preferences.ts` — `charsetView` alongside `labelCase`, guarded on read.
+- [x] `CharacterPanel.vue` — Fill / Clear / Invert into the header; `WallpaperPreview.vue`
+      deleted (Decision 32).
+- [x] `vitest.setup.ts` — an `Element.prototype.scrollIntoView` stub; jsdom has no layout, so
+      the method is missing entirely rather than being a no-op.
+- [x] Specs for the list and the picker.
+
+#### Phase 31 — The Keyboard Map & Help Sheet ✅
+- [x] `utils/shortcuts.ts` — every key declared once, with mode-aware matching, grouped
+      sections for display, and platform-aware labels (`⇧⌘Z` on Apple, `Shift+Ctrl+Z`
+      elsewhere).
+- [x] `components/HelpDialog.vue` — the map on screen, filtered to the open project's mode,
+      plus a pointer & touch section.
+- [x] `EditorView.vue` / `ProjectManagerView.vue` — `Record<Action, () => void>` handler
+      tables replacing the key-by-key switches; a Keyboard button in both headers, since on
+      a tablet the shortcut that opens the sheet is the one key the user cannot press.
+- [x] `Space` / `Enter` yield to whichever control has focus — the old global handler took
+      `Space` for play/pause even when a button had it.
+- [x] README's **Keyboard Shortcuts** section rewritten one row per shortcut, and
+      `shortcuts.spec.ts` fails if a key in the map has no row.
+- [x] Bumped `package.json` to `1.5.0`; suite **447 green**, type-check + lint +
+      `VITE_BASE=/TMS9918-EDITOR/` build clean.
+- [x] Committed, tagged `v1.5.0`, pushed to `origin/main`, GitHub release published with the
+      title `v1.5.0`.
+- **Exit criteria:** ✅ the character set reads on a short window, the keyboard map has one
+  source of truth that the app and the README both render, and `v1.5.0` is tagged, pushed,
+  and released.
