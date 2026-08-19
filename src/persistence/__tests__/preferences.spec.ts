@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
+import { DEFAULT_CHARSET_VIEW } from '@/utils/charsetView'
 import {
   DEFAULT_PREFERENCES,
   PREFERENCES_KEY,
@@ -21,9 +22,17 @@ describe('preferences', () => {
     expect(loadPreferences().labelCase).toBe('pascal')
   })
 
+  it('round-trips the character-set layout, and ignores a value it no longer offers', () => {
+    savePreferences({ charsetView: 'list' })
+    expect(loadPreferences().charsetView).toBe('list')
+
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ charsetView: 'carousel' }))
+    expect(loadPreferences().charsetView).toBe(DEFAULT_CHARSET_VIEW)
+  })
+
   it('merges patches instead of replacing the record', () => {
     savePreferences({ labelCase: 'camel' })
-    expect(savePreferences({})).toEqual({ labelCase: 'camel' })
+    expect(savePreferences({})).toEqual({ labelCase: 'camel', charsetView: DEFAULT_CHARSET_VIEW })
   })
 
   it('falls back to defaults for corrupt or unknown values', () => {
@@ -46,6 +55,9 @@ describe('preferences', () => {
       removeItem() {},
     }
     expect(loadPreferences(broken)).toEqual(DEFAULT_PREFERENCES)
-    expect(savePreferences({ labelCase: 'upper' }, broken)).toEqual({ labelCase: 'upper' })
+    expect(savePreferences({ labelCase: 'upper' }, broken)).toEqual({
+      labelCase: 'upper',
+      charsetView: DEFAULT_CHARSET_VIEW,
+    })
   })
 })

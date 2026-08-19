@@ -6,23 +6,42 @@ import { MODES } from '@/domain/modes'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
 
-const props = defineProps<{
-  /** First character code in this grid (0 or 128) */
-  startCode: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** First character code in this grid (0 or 128) */
+    startCode: number
+    /** How many characters this grid shows — a half of the set, or all of it. */
+    count?: number
+    /**
+     * Which axis the glyphs are sized from. `height` scales the block to the
+     * space it is given (the Blocks view); `width` fixes it to the column and
+     * lets it run as tall as it needs, for a caller that scrolls it.
+     */
+    fit?: 'height' | 'width'
+  }>(),
+  { count: 128, fit: 'height' },
+)
 
 const projects = useProjectsStore()
 const editor = useEditorStore()
 
 const COLUMNS = 8
-const ROWS = 16 // 128 characters per half
+/**
+ * Widest a glyph gets in the width-fitted view. Without it a wide column
+ * stretches eight glyphs across it at ten times life size, which is a lot of
+ * scrolling for a set you are trying to see.
+ */
+const MAX_CELL_PX = 48
 const SCALE = 3
 const NEUTRAL = '#0a0a0a' // ink-950: transparent renders as the app background
+
+/** Rows this grid draws — 16 for a half of the set, 32 for all of it. */
+const rows = computed(() => Math.ceil(props.count / COLUMNS))
 
 /** Displayed pixel columns per cell — 6 in Text Mode. */
 const cellWidth = computed(() => (projects.current ? MODES[projects.current.type].cellWidth : 8))
 const logicalWidth = computed(() => COLUMNS * cellWidth.value)
-const logicalHeight = ROWS * 8
+const logicalHeight = computed(() => rows.value * 8)
 
 const canvas = useTemplateRef('canvas')
 
@@ -34,8 +53,8 @@ watchEffect(
     if (!project || !ctx) return
     const width = cellWidth.value
     ctx.fillStyle = NEUTRAL
-    ctx.fillRect(0, 0, logicalWidth.value, logicalHeight)
-    for (let i = 0; i < COLUMNS * ROWS; i++) {
+    ctx.fillRect(0, 0, logicalWidth.value, logicalHeight.value)
+    for (let i = 0; i < props.count; i++) {
       const code = props.startCode + i
       const pattern = project.charsets[editor.selectedCharset]?.[code]
       if (!pattern) continue
@@ -61,13 +80,16 @@ function onPointerDown(event: PointerEvent) {
   // The canvas scales with the viewport — derive cell size from its rendered rect
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const col = Math.floor(((event.clientX - rect.left) / rect.width) * COLUMNS)
-  const row = Math.floor(((event.clientY - rect.top) / rect.height) * ROWS)
-  if (col < 0 || col >= COLUMNS || row < 0 || row >= ROWS) return
-  editor.selectChar(props.startCode + row * COLUMNS + col)
+  const row = Math.floor(((event.clientY - rect.top) / rect.height) * rows.value)
+  if (col < 0 || col >= COLUMNS || row < 0 || row >= rows.value) return
+  const index = row * COLUMNS + col
+  if (index >= props.count) return
+  editor.selectChar(props.startCode + index)
 }
 
 const hasSelection = computed(
-  () => editor.selectedChar >= props.startCode && editor.selectedChar < props.startCode + 128,
+  () =>
+    editor.selectedChar >= props.startCode && editor.selectedChar < props.startCode + props.count,
 )
 
 /**
@@ -81,41 +103,48 @@ const groupRow = computed(() => {
 
 // Overlays are percentage-positioned so they track the scaled canvas
 const groupStyle = computed(() => ({
-  top: `${((groupRow.value ?? 0) / ROWS) * 100}%`,
-  height: `${100 / ROWS}%`,
+  top: `${((groupRow.value ?? 0) / rows.value) * 100}%`,
+  height: `${100 / rows.value}%`,
 }))
 
 // Per-cell grid overlay
-const gridStyle = {
+const gridStyle = computed(() => ({
   backgroundImage:
     'linear-gradient(to right, rgb(255 255 255 / 0.14) 1px, transparent 1px), ' +
     'linear-gradient(to bottom, rgb(255 255 255 / 0.14) 1px, transparent 1px)',
-  backgroundSize: `${100 / COLUMNS}% ${100 / ROWS}%`,
-}
+  backgroundSize: `${100 / COLUMNS}% ${100 / rows.value}%`,
+}))
 
 const ringStyle = computed(() => {
   const i = editor.selectedChar - props.startCode
   return {
     left: `${((i % COLUMNS) / COLUMNS) * 100}%`,
-    top: `${(Math.floor(i / COLUMNS) / ROWS) * 100}%`,
+    top: `${(Math.floor(i / COLUMNS) / rows.value) * 100}%`,
     width: `${100 / COLUMNS}%`,
-    height: `${100 / ROWS}%`,
+    height: `${100 / rows.value}%`,
   }
 })
 </script>
 
 <template>
-  <!-- Height-driven: shrinks with the available space, capped at ×3 scale -->
+  <!-- Height-driven: shrinks with the available space, capped at ×3 scale.
+       Width-driven: fills the column, as tall as the glyphs make it. -->
   <div
-    class="relative h-full min-h-32 w-fit rounded-sm border border-ink-700"
-    :style="{ maxHeight: `${logicalHeight * SCALE}px` }"
+    class="relative rounded-sm border border-ink-700"
+    :class="fit === 'height' ? 'h-full min-h-32 w-fit' : 'mx-auto w-full'"
+    :style="
+      fit === 'height'
+        ? { maxHeight: `${logicalHeight * SCALE}px` }
+        : { maxWidth: `${COLUMNS * MAX_CELL_PX}px` }
+    "
   >
     <canvas
       ref="canvas"
       :width="logicalWidth"
       :height="logicalHeight"
-      class="block h-full w-auto cursor-pointer [image-rendering:pixelated] select-none"
-      :aria-label="`Characters ${startCode}–${startCode + 127} — click to select`"
+      class="block cursor-pointer [image-rendering:pixelated] select-none"
+      :class="fit === 'height' ? 'h-full w-auto' : 'h-auto w-full'"
+      :aria-label="`Characters ${startCode}–${startCode + count - 1} — click to select`"
       @pointerdown="onPointerDown"
       @contextmenu.prevent
     />

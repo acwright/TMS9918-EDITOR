@@ -6,6 +6,7 @@
  */
 
 import { DEFAULT_LABEL_CASE, isLabelCase, type LabelCase } from '@/domain/export/labels'
+import { DEFAULT_CHARSET_VIEW, isCharsetView, type CharsetView } from '@/utils/charsetView'
 import type { KVStorage } from './repository'
 
 export const PREFERENCES_KEY = 'tms9918-editor:prefs'
@@ -13,9 +14,14 @@ export const PREFERENCES_KEY = 'tms9918-editor:prefs'
 export interface Preferences {
   /** Casing applied to labels in assembly exports. */
   labelCase: LabelCase
+  /** How the character-set picker lays its glyphs out. */
+  charsetView: CharsetView
 }
 
-export const DEFAULT_PREFERENCES: Preferences = { labelCase: DEFAULT_LABEL_CASE }
+export const DEFAULT_PREFERENCES: Preferences = {
+  labelCase: DEFAULT_LABEL_CASE,
+  charsetView: DEFAULT_CHARSET_VIEW,
+}
 
 function safeStorage(storage?: KVStorage): KVStorage | null {
   if (storage) return storage
@@ -48,6 +54,7 @@ export function loadPreferences(storage?: KVStorage): Preferences {
   const p = parsed as Record<string, unknown>
   return {
     labelCase: isLabelCase(p.labelCase) ? p.labelCase : DEFAULT_PREFERENCES.labelCase,
+    charsetView: isCharsetView(p.charsetView) ? p.charsetView : DEFAULT_PREFERENCES.charsetView,
   }
 }
 

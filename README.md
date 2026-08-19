@@ -46,6 +46,9 @@ single self-contained link.
 - **Sprite animations** — name any number of frame sequences, scrub or play them back at
   1–30 fps over the backdrop, with hardware 1×/2× magnification applied — see
   [Sprites](#sprites).
+- **Character set panel, three ways** — the set as two scaled blocks of 128, as a scrolling grid
+  of eight glyphs a row at a fixed size, or as a list carrying each character's code and whether
+  its slot is still blank. Pick whichever suits the window; the choice is remembered per browser.
 - **Character byte box** — view the selected glyph as comma-separated **hex** or **decimal**,
   copy it, or paste either form (or a `.byte` / `db` / `DATA` line) back in to set the character.
 - **Export** to 6502 (`ca65`) or Z80 assembly, BASIC `DATA`, raw binary, or PNG — with separate

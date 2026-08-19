@@ -20,7 +20,6 @@ import AppTooltip from '@/components/base/AppTooltip.vue'
 import CharBytesBox from './CharBytesBox.vue'
 import ColorPicker from './ColorPicker.vue'
 import PixelEditor from './PixelEditor.vue'
-import WallpaperPreview from './WallpaperPreview.vue'
 import * as charOps from '@/domain/charOps'
 import { colorHex, resolveRowColors } from '@/domain/colors'
 import { useEditorStore } from '@/stores/editor'
@@ -61,8 +60,6 @@ const charLabel = computed(() => {
 
 // Text Mode displays only pattern columns 0–5 (PLAN.md §4.2)
 const dimFrom = computed(() => (projects.current?.type === 'text' ? 6 : null))
-/** Wallpaper preview draws only the displayed columns. */
-const previewWidth = computed(() => dimFrom.value ?? 8)
 
 // GMII: per-row color chips beside the editor + targeted-row highlight (Decision 2)
 const isG2 = computed(() => projects.current?.type === 'graphics2')
@@ -80,9 +77,37 @@ function chipHalfStyle(index: number): { backgroundColor: string } {
     class="flex w-fit flex-col gap-3"
     aria-label="Character editor"
   >
-    <div class="flex items-center justify-between">
+    <!-- Whole-character actions sit in the header beside the stepper rather than
+         in a row of their own further down: they act on the character, not on
+         the pixel under the pointer, and the column below is worth more to the
+         character set. -->
+    <div class="flex items-center justify-between gap-2">
       <h2 class="text-xl">Character</h2>
       <div class="flex items-center gap-1.5">
+        <div class="flex gap-1">
+          <AppButton
+            label="Fill"
+            shortcut="F"
+            @click="editor.transform('Fill', () => charOps.fill())"
+          >
+            <PaintBucket class="size-4" />
+          </AppButton>
+          <AppButton
+            label="Clear"
+            shortcut="C"
+            @click="editor.transform('Clear', () => charOps.clear())"
+          >
+            <Eraser class="size-4" />
+          </AppButton>
+          <AppButton
+            label="Invert"
+            shortcut="I"
+            @click="editor.transform('Invert', charOps.invert)"
+          >
+            <Contrast class="size-4" />
+          </AppButton>
+        </div>
+        <div class="mx-0.5 h-6 w-px bg-ink-800" />
         <AppButton
           label="Previous Character"
           shortcut="["
@@ -216,33 +241,6 @@ function chipHalfStyle(index: number): { backgroundColor: string } {
     </div>
 
     <ColorPicker />
-
-    <div class="flex items-center justify-between gap-3">
-      <div class="flex gap-1">
-        <AppButton
-          label="Fill"
-          shortcut="F"
-          @click="editor.transform('Fill', () => charOps.fill())"
-        >
-          <PaintBucket class="size-4" />
-        </AppButton>
-        <AppButton
-          label="Clear"
-          shortcut="C"
-          @click="editor.transform('Clear', () => charOps.clear())"
-        >
-          <Eraser class="size-4" />
-        </AppButton>
-        <AppButton label="Invert" shortcut="I" @click="editor.transform('Invert', charOps.invert)">
-          <Contrast class="size-4" />
-        </AppButton>
-      </div>
-      <WallpaperPreview
-        :pattern="editor.currentPattern"
-        :row-colors="rowColors"
-        :cell-width="previewWidth"
-      />
-    </div>
 
     <CharBytesBox :bytes="editor.currentPattern" />
   </section>

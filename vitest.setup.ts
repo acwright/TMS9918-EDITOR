@@ -58,3 +58,12 @@ if (!globalThis.sessionStorage) {
 if (typeof HTMLCanvasElement !== 'undefined') {
   HTMLCanvasElement.prototype.getContext = () => null
 }
+
+/**
+ * jsdom has no layout, so `scrollIntoView` is missing entirely rather than
+ * being a no-op. Components that keep a selection visible call it on every
+ * selection change; a stub here keeps that out of the components themselves.
+ */
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {}
+}
