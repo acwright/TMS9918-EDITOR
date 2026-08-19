@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft } from 'lucide-vue-next'
+import { ArrowLeft, Keyboard } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/base/AppButton.vue'
+import HelpDialog from '@/components/HelpDialog.vue'
 import AnimationPanel from '@/components/editor/AnimationPanel.vue'
 import CharacterPanel from '@/components/editor/CharacterPanel.vue'
 import CharsetPicker from '@/components/editor/CharsetPicker.vue'
@@ -12,8 +13,9 @@ import ScreenPanel from '@/components/editor/ScreenPanel.vue'
 import SpritePanel from '@/components/editor/SpritePanel.vue'
 import SpritePicker from '@/components/editor/SpritePicker.vue'
 import { MODES } from '@/domain/modes'
-import { useEditorStore, type TransformName } from '@/stores/editor'
+import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import { matchEditorShortcut, shortcutLabel, type EditorAction } from '@/utils/shortcuts'
 
 const props = defineProps<{ projectId: string }>()
 
@@ -34,6 +36,7 @@ onBeforeUnmount(() => store.close())
 const SAVE_STATE_LABEL = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved' } as const
 
 const showSettings = ref(false)
+const showHelp = ref(false)
 
 // Multicolor has no character/charset editing — a single colour rail + screen,
 // so it skips the Character panel and the responsive tab split entirely (§10 Decision 10).
@@ -53,17 +56,65 @@ const tabLabels = computed(() =>
     : { character: 'Character', screen: 'Screen' },
 )
 
-// Pattern shifts on Alt+Arrows (plain arrows are left for future cursor use;
-// Alt also avoids hijacking browser Back on Windows). `applyTransform` routes
-// to charOps or spriteOps depending on the open mode.
-const ALT_SHIFTS: Record<string, TransformName> = {
-  ArrowLeft: 'shiftLeft',
-  ArrowRight: 'shiftRight',
-  ArrowUp: 'shiftUp',
-  ArrowDown: 'shiftDown',
+/**
+ * What each shortcut does. Keyed by action rather than by key, and exhaustive
+ * over `EditorAction`, so a shortcut added to the map without a handler here
+ * fails the type-check instead of doing nothing (`utils/shortcuts.ts`).
+ *
+ * Several keys mean one thing in a sprite project and another everywhere else:
+ * `applyTransform` already routes to charOps or spriteOps for the open mode,
+ * and the paging keys branch here. The map hides the ones a mode has no answer
+ * for, so those never reach this table at all.
+ */
+const ACTIONS: Record<EditorAction, () => void> = {
+  undo: () => editor.undo(),
+  redo: () => editor.redo(),
+  save: () => store.saveCurrent(),
+  help: () => (showHelp.value = true),
+  back: () => router.push('/'),
+
+  // Sprite mode steps through sprite slots; every other mode, characters.
+  prevChar: () =>
+    isSprite.value
+      ? editor.selectSprite(editor.selectedSprite - 1)
+      : editor.selectChar(editor.selectedChar - 1),
+  nextChar: () =>
+    isSprite.value
+      ? editor.selectSprite(editor.selectedSprite + 1)
+      : editor.selectChar(editor.selectedChar + 1),
+  fill: () => editor.applyTransform('fill'),
+  clear: () => editor.applyTransform('clear'),
+  invert: () => editor.applyTransform('invert'),
+  flipH: () => editor.applyTransform('flipH'),
+  flipV: () => editor.applyTransform('flipV'),
+  rotateRight: () => editor.applyTransform('rotateRight'),
+  rotateLeft: () => editor.applyTransform('rotateLeft'),
+  // Alt rather than bare arrows: it leaves plain arrows for future cursor use
+  // and avoids hijacking browser Back on Windows.
+  shiftLeft: () => editor.applyTransform('shiftLeft'),
+  shiftRight: () => editor.applyTransform('shiftRight'),
+  shiftUp: () => editor.applyTransform('shiftUp'),
+  shiftDown: () => editor.applyTransform('shiftDown'),
+
+  // Sprite mode paginates animations where the others paginate screens, and
+  // zooms the animation preview where they zoom the screen.
+  prevScreen: () =>
+    isSprite.value
+      ? editor.selectAnimation(editor.selectedAnimation - 1)
+      : editor.selectScreen(editor.selectedScreen - 1),
+  nextScreen: () =>
+    isSprite.value
+      ? editor.selectAnimation(editor.selectedAnimation + 1)
+      : editor.selectScreen(editor.selectedScreen + 1),
+  zoomIn: () => (isSprite.value ? editor.zoomPreview(1) : editor.zoomScreen(1)),
+  zoomOut: () => (isSprite.value ? editor.zoomPreview(-1) : editor.zoomScreen(-1)),
+  toggleGrid: () => editor.toggleGrid(),
+  playPause: () => editor.togglePlaying(),
 }
 
-/** Global shortcut map (documented in README). */
+/** Controls that answer to Space or Enter themselves — never steal those keys. */
+const ACTIVATABLE = 'button, a, [role="button"], [role="option"], [role="tab"]'
+
 function onKeydown(event: KeyboardEvent) {
   // Never fire while typing or while a dialog is open (Esc there closes it natively)
   const target = event.target as HTMLElement | null
@@ -77,91 +128,14 @@ function onKeydown(event: KeyboardEvent) {
     return
   }
 
-  if (event.metaKey || event.ctrlKey) {
-    const key = event.key.toLowerCase()
-    if (key === 'z') {
-      event.preventDefault()
-      if (event.shiftKey) editor.redo()
-      else editor.undo()
-    } else if (key === 's') {
-      event.preventDefault()
-      store.saveCurrent()
-    }
-    return // leave other browser combos alone
-  }
+  // Space play/pause would otherwise swallow the press that activates a
+  // focused button — the animation controls among them.
+  if ((event.key === ' ' || event.key === 'Enter') && target?.closest(ACTIVATABLE)) return
 
-  if (event.altKey) {
-    const shift = ALT_SHIFTS[event.key]
-    if (shift) {
-      event.preventDefault()
-      editor.applyTransform(shift)
-    }
-    return
-  }
-
-  switch (event.key) {
-    case 'Escape':
-      router.push('/')
-      return
-    case '[':
-      // Sprite mode steps through sprite slots; every other mode, characters.
-      if (isSprite.value) editor.selectSprite(editor.selectedSprite - 1)
-      else editor.selectChar(editor.selectedChar - 1)
-      return
-    case ']':
-      if (isSprite.value) editor.selectSprite(editor.selectedSprite + 1)
-      else editor.selectChar(editor.selectedChar + 1)
-      return
-    case ',':
-      // Sprite mode paginates animations where the others paginate screens.
-      if (isSprite.value) editor.selectAnimation(editor.selectedAnimation - 1)
-      else editor.selectScreen(editor.selectedScreen - 1)
-      return
-    case '.':
-      if (isSprite.value) editor.selectAnimation(editor.selectedAnimation + 1)
-      else editor.selectScreen(editor.selectedScreen + 1)
-      return
-    case ' ':
-      if (isSprite.value) {
-        event.preventDefault() // Space would otherwise scroll the panel
-        editor.togglePlaying()
-      }
-      return
-    case '+':
-    case '=':
-      // Sprite mode zooms the animation preview; every other mode, the screen.
-      if (isSprite.value) editor.zoomPreview(1)
-      else editor.zoomScreen(1)
-      return
-    case '-':
-      if (isSprite.value) editor.zoomPreview(-1)
-      else editor.zoomScreen(-1)
-      return
-  }
-
-  switch (event.key.toLowerCase()) {
-    case 'g':
-      if (!isSprite.value) editor.toggleGrid()
-      return
-    case 'f':
-      editor.applyTransform('fill')
-      return
-    case 'c':
-      editor.applyTransform('clear')
-      return
-    case 'i':
-      editor.applyTransform('invert')
-      return
-    case 'h':
-      editor.applyTransform('flipH')
-      return
-    case 'v':
-      editor.applyTransform('flipV')
-      return
-    case 'r':
-      editor.applyTransform(event.shiftKey ? 'rotateLeft' : 'rotateRight')
-      return
-  }
+  const action = matchEditorShortcut(event, store.current?.type ?? null)
+  if (!action) return
+  event.preventDefault()
+  ACTIONS[action]()
 }
 
 onMounted(() => window.addEventListener('keydown', onKeydown))
@@ -173,7 +147,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     <header class="flex h-12 shrink-0 items-center gap-3 border-b border-ink-800 bg-ink-900 px-3">
       <AppButton
         label="Back to Projects"
-        shortcut="Esc"
+        :shortcut="shortcutLabel('back')"
         placement="bottom"
         @click="router.push('/')"
       >
@@ -191,13 +165,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           {{ SAVE_STATE_LABEL[store.saveState] }}
         </span>
       </template>
+      <!-- Reachable by pointer as well as by key: on a tablet the shortcut that
+           opens this dialog is the one thing the user cannot press -->
+      <AppButton
+        label="Keyboard Shortcuts"
+        :shortcut="shortcutLabel('help')"
+        placement="bottom"
+        :class="store.current ? '' : 'ml-auto'"
+        @click="showHelp = true"
+      >
+        <Keyboard class="size-4" />
+      </AppButton>
     </header>
 
     <!-- Multicolor: slim colour rail + full-width screen; no tabs, no Character panel -->
-    <main
-      v-if="store.current && isMulticolor"
-      class="flex min-h-0 flex-1 flex-col lg:flex-row"
-    >
+    <main v-if="store.current && isMulticolor" class="flex min-h-0 flex-1 flex-col lg:flex-row">
       <aside
         class="shrink-0 overflow-x-hidden overflow-y-auto border-b border-ink-800 p-4 lg:w-64 lg:border-r lg:border-b-0"
       >
@@ -299,5 +281,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         <p class="text-sm">It may have been deleted or this link is stale.</p>
       </div>
     </main>
+
+    <HelpDialog v-model="showHelp" :type="store.current?.type ?? null" />
   </div>
 </template>

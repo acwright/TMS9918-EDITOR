@@ -175,56 +175,88 @@ that case.
 
 ## Keyboard Shortcuts
 
-`Ctrl` is `⌘` on macOS; `Alt` is `⌥`.
+Every key below is also listed in the app: the **Keyboard Shortcuts** button in either header — or
+`?` — opens the same map, taken from the same source as this table, filtered to the keys the open
+project's mode actually answers to. On Apple platforms `Ctrl/Cmd` is `⌘`, `Alt` is `⌥` and `Shift`
+is `⇧`.
 
-### Everywhere in the editor
+### Project
 
-| Shortcut | Action |
-|---|---|
-| `Ctrl+Z` | Undo |
-| `Shift+Ctrl+Z` | Redo |
-| `Ctrl+S` | Save now |
-| `Esc` | Back to projects (closes a dialog first if one is open) |
+| Key                | Action                   |
+| ------------------ | ------------------------ |
+| `Ctrl/Cmd+Z`       | Undo                     |
+| `Shift+Ctrl/Cmd+Z` | Redo                     |
+| `Ctrl/Cmd+S`       | Save now                 |
+| `?`                | Keyboard shortcuts       |
+| `Esc`              | Back to the project list |
 
-### Character / Sprite
+### Character
 
-The transform keys apply to whatever is being edited — one 8×8 character, or a whole 8×8 or
-16×16 sprite.
+Multicolor projects paint palette entries straight onto the screen and have no character panel, so
+none of these keys apply there.
 
-| Shortcut | Action |
-|---|---|
-| `[` / `]` | Previous / next character (or sprite) |
-| `F` | Fill |
-| `C` | Clear |
-| `I` | Invert |
-| `R` / `Shift+R` | Rotate right / left |
-| `H` / `V` | Flip horizontal / vertical |
-| `Alt+←` `→` `↑` `↓` | Shift pixels (wraps) |
+| Key       | Action                  |
+| --------- | ----------------------- |
+| `[`       | Previous character      |
+| `]`       | Next character          |
+| `F`       | Fill the character      |
+| `C`       | Clear the character     |
+| `I`       | Invert the character    |
+| `H`       | Flip horizontal         |
+| `V`       | Flip vertical           |
+| `R`       | Rotate right            |
+| `Shift+R` | Rotate left             |
+| `Alt+←`   | Shift the pattern left  |
+| `Alt+→`   | Shift the pattern right |
+| `Alt+↑`   | Shift the pattern up    |
+| `Alt+↓`   | Shift the pattern down  |
 
 ### Screen
 
-| Shortcut | Action |
-|---|---|
-| `+` / `-` | Zoom in / out |
-| `G` | Toggle grid overlay |
-| `,` / `.` | Previous / next screen |
+| Key       | Action          |
+| --------- | --------------- |
+| `,`       | Previous screen |
+| `.`       | Next screen     |
+| `+` / `=` | Zoom in         |
+| `-`       | Zoom out        |
+| `G`       | Grid overlay    |
 
-### Sprite mode
+### Character set list
 
-Sprite projects have no screen, so `,` / `.` paginate animations instead and `G` is unused.
+The list layout of the character set is a listbox: it takes focus, and these keys move the
+selection while it holds it.
 
-| Shortcut | Action |
-|---|---|
-| `,` / `.` | Previous / next animation |
-| `Space` | Play / pause the animation |
+| Key                   | Action                     |
+| --------------------- | -------------------------- |
+| `↑` / `↓`             | Previous or next character |
+| `PageUp` / `PageDown` | Jump eight characters      |
+| `Home` / `End`        | First or last character    |
 
-### Project Manager
+### Sprite projects
 
-| Shortcut | Action |
-|---|---|
-| `N` | New project |
+A sprite project has no screen, so the transform keys act on the whole sprite, the paging keys walk
+its animations, `+` / `-` zoom the animation preview, and `G` does nothing.
 
-Shortcuts are disabled while typing in a text field or while a dialog is open.
+| Key     | Action                      |
+| ------- | --------------------------- |
+| `[`     | Previous sprite             |
+| `]`     | Next sprite                 |
+| `F`     | Fill the sprite             |
+| `C`     | Clear the sprite            |
+| `I`     | Invert the sprite           |
+| `,`     | Previous animation          |
+| `.`     | Next animation              |
+| `Space` | Play or pause the animation |
+
+### Project list
+
+| Key | Action             |
+| --- | ------------------ |
+| `N` | New project        |
+| `?` | Keyboard shortcuts |
+
+Shortcuts are disabled while typing in a text field or while a dialog is open, and `Space` and
+`Enter` always belong to whichever control has focus.
 
 ## Development
 

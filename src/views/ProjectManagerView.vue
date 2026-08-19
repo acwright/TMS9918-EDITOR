@@ -1,10 +1,22 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { Copy, Download, Github, Pencil, Plus, Share2, Trash2, Upload, X } from 'lucide-vue-next'
+import {
+  Copy,
+  Download,
+  Github,
+  Keyboard,
+  Pencil,
+  Plus,
+  Share2,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-vue-next'
 import AppButton from '@/components/base/AppButton.vue'
 import AppDialog from '@/components/base/AppDialog.vue'
 import AppTextInput from '@/components/base/AppTextInput.vue'
+import HelpDialog from '@/components/HelpDialog.vue'
 import NewProjectDialog from '@/components/projects/NewProjectDialog.vue'
 import ShareDialog from '@/components/projects/ShareDialog.vue'
 import { MODES } from '@/domain/modes'
@@ -14,6 +26,7 @@ import { ShareLinkError, decodeShare, takePendingShare } from '@/domain/share'
 import type { ProjectSummary } from '@/persistence/repository'
 import { SAMPLES, type Sample } from '@/samples'
 import { useProjectsStore } from '@/stores/projects'
+import { matchManagerShortcut, shortcutLabel, type ManagerAction } from '@/utils/shortcuts'
 
 const store = useProjectsStore()
 const router = useRouter()
@@ -22,21 +35,29 @@ const version = __APP_VERSION__
 
 onMounted(() => store.refresh())
 
-// N opens the new-project dialog (disabled while typing or in a dialog)
+/** The manager's own keys, from the same map the editor and README use. */
+const ACTIONS: Record<ManagerAction, () => void> = {
+  newProject: () => (showNewProject.value = true),
+  help: () => (showHelp.value = true),
+}
+
+// Nothing fires while typing or while a dialog is open
 function onKeydown(event: KeyboardEvent) {
   const target = event.target as HTMLElement | null
   if (
-    event.metaKey ||
-    event.ctrlKey ||
-    event.altKey ||
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
     target?.isContentEditable ||
     document.querySelector('dialog[open]')
   ) {
     return
   }
-  if (event.key.toLowerCase() === 'n') showNewProject.value = true
+
+  const action = matchManagerShortcut(event)
+  if (!action) return
+  event.preventDefault()
+  ACTIONS[action]()
 }
 
 onMounted(() => window.addEventListener('keydown', onKeydown))
@@ -48,6 +69,7 @@ function openProject(id: string) {
 
 // --- New project ---
 const showNewProject = ref(false)
+const showHelp = ref(false)
 
 function onCreate(options: CreateProjectOptions) {
   const project = store.create(options)
@@ -161,10 +183,22 @@ function formatDate(iso: string): string {
         <p class="text-sm text-ink-400">Character &amp; screen editor for the TMS9918 VDP</p>
       </div>
       <div class="flex gap-2">
+        <AppButton
+          label="Keyboard Shortcuts"
+          :shortcut="shortcutLabel('help')"
+          @click="showHelp = true"
+        >
+          <Keyboard class="size-4" />
+        </AppButton>
         <AppButton label="Upload Project" @click="fileInput?.click()">
           <Upload class="size-4" />
         </AppButton>
-        <AppButton label="New Project" shortcut="N" show-label @click="showNewProject = true">
+        <AppButton
+          label="New Project"
+          :shortcut="shortcutLabel('newProject')"
+          show-label
+          @click="showNewProject = true"
+        >
           <Plus class="size-4" />
         </AppButton>
       </div>
@@ -195,9 +229,12 @@ function formatDate(iso: string): string {
         :key="summary.id"
         class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-ink-800 bg-ink-900 p-2 transition-colors hover:border-ink-600"
       >
+        <!-- items-center, not items-baseline: the badge is a bordered chip, and
+             sitting its text on the 2xl name's baseline hangs it below the
+             name's optical centre -->
         <button
           type="button"
-          class="flex min-w-0 flex-1 basis-full cursor-pointer items-baseline gap-3 rounded-sm px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-300 sm:basis-0"
+          class="flex min-w-0 flex-1 basis-full cursor-pointer items-center gap-3 rounded-sm px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-300 sm:basis-0"
           @click="openProject(summary.id)"
         >
           <span class="font-display truncate text-2xl tracking-wider">{{ summary.name }}</span>
@@ -279,6 +316,8 @@ function formatDate(iso: string): string {
         <span>GitHub</span>
       </a>
     </footer>
+
+    <HelpDialog v-model="showHelp" />
 
     <NewProjectDialog v-model="showNewProject" @create="onCreate" />
 
