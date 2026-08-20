@@ -15,6 +15,7 @@ import SpritePicker from '@/components/editor/SpritePicker.vue'
 import { MODES } from '@/domain/modes'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import { editorMenuContext, onMenuAction, reportMenuContext } from '@/utils/menu'
 import { matchEditorShortcut, shortcutLabel, type EditorAction } from '@/utils/shortcuts'
 
 const props = defineProps<{ projectId: string }>()
@@ -140,6 +141,26 @@ function onKeydown(event: KeyboardEvent) {
 
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+
+// Desktop only, and inert in a browser tab. A menu item carries the same
+// action id a key would, so it lands in the table above — no second command
+// list, and nothing to keep in step.
+let stopMenuAction: (() => void) | undefined
+onMounted(() => {
+  stopMenuAction = onMenuAction((action) => {
+    if (action in ACTIONS) ACTIONS[action as EditorAction]()
+  })
+})
+onBeforeUnmount(() => stopMenuAction?.())
+
+// The open mode decides which items are live and how they are worded, so the
+// menu is told again whenever it changes — including the change from "no
+// project yet" to the one that finished loading.
+watch(
+  () => store.current?.type ?? null,
+  (type) => reportMenuContext(editorMenuContext(type)),
+  { immediate: true },
+)
 </script>
 
 <template>

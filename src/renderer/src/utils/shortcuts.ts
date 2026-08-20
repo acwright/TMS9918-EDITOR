@@ -304,6 +304,17 @@ function match<A extends string>(list: readonly Shortcut<A>[], event: KeyboardEv
   return list.find((entry) => entry.keys.some((key) => matchesEvent(key, event)))?.action ?? null
 }
 
+/**
+ * The editor actions that mean something in `type`, in map order.
+ *
+ * The native menu greys out everything not in this list, and it asks rather
+ * than deciding for itself so that the mode predicate has exactly one
+ * implementation — the one the key matcher below runs on.
+ */
+export function editorActionsFor(type: ProjectType | null): EditorAction[] {
+  return EDITOR_SHORTCUTS.filter((entry) => appliesTo(entry, type)).map((entry) => entry.action)
+}
+
 /** The editor action this key press means in `type`, or null when it means nothing. */
 export function matchEditorShortcut(
   event: KeyboardEvent,
