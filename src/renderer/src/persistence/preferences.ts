@@ -7,6 +7,7 @@
 
 import { DEFAULT_LABEL_CASE, isLabelCase, type LabelCase } from '@/domain/export/labels'
 import { DEFAULT_CHARSET_VIEW, isCharsetView, type CharsetView } from '@/utils/charsetView'
+import { DEFAULT_SPRITE_VIEW, isSpriteView, type SpriteView } from '@/utils/spriteView'
 import type { KVStorage } from './repository'
 
 export const PREFERENCES_KEY = 'tms9918-editor:prefs'
@@ -16,11 +17,14 @@ export interface Preferences {
   labelCase: LabelCase
   /** How the character-set picker lays its glyphs out. */
   charsetView: CharsetView
+  /** How the sprite picker lays its slots out — its own choice (Decision 37). */
+  spriteView: SpriteView
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
   labelCase: DEFAULT_LABEL_CASE,
   charsetView: DEFAULT_CHARSET_VIEW,
+  spriteView: DEFAULT_SPRITE_VIEW,
 }
 
 function safeStorage(storage?: KVStorage): KVStorage | null {
@@ -55,6 +59,7 @@ export function loadPreferences(storage?: KVStorage): Preferences {
   return {
     labelCase: isLabelCase(p.labelCase) ? p.labelCase : DEFAULT_PREFERENCES.labelCase,
     charsetView: isCharsetView(p.charsetView) ? p.charsetView : DEFAULT_PREFERENCES.charsetView,
+    spriteView: isSpriteView(p.spriteView) ? p.spriteView : DEFAULT_PREFERENCES.spriteView,
   }
 }
 

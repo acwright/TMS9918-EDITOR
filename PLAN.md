@@ -17,7 +17,14 @@ This document is the source of truth across agent sessions. **Update the checkbo
   Round 5 was `v1.3.0` (label case, pointer status, share links); Round 4 was `v1.2.1`
   (sample refresh); Round 3 was `v1.2.0` (Multicolor Mode); Round 2 was `v1.1.0`;
   Round 1 / Phases 1–10 was `v1.0.0`.
-- **Last updated:** 2026-08-19
+- **Round 9 (Phase 32) is built** and folded into the desktop release: three arrangements for
+  the **sprite picker** — Sheet, Grid and List — mirroring what Round 8 did for the character
+  set, plus a list that names what the sheet can only hint at (slot number in both bases, the
+  hardware patterns it occupies, its colour, blank and invisible). See **§16** and Phase 32.
+  `package.json` is `1.6.0`; suite **496 green**, lint + type-check + both builds clean.
+  Not yet tagged — it ships with the Electron release (ELECTRON-PLAN §E6), which is what
+  `v1.6.0` will carry.
+- **Last updated:** 2026-08-20
 - **Round 4 (target `v1.2.1`)** is a small patch round replacing the lacklustre Graphics I
   and II samples with proper mock game screens that showcase each mode's colour model — a
   tiled arcade platformer (**Platform Climb**) and a full-bitmap space battle
@@ -264,6 +271,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 ## 7. Phases
 
 ### Phase 1 — Scaffold & Foundation
+
 - [x] `create-vue` scaffold → Vue 3 + TS + Pinia + Router + Vitest + ESLint/oxlint/Prettier;
       added `lucide-vue-next`, `@fontsource/bebas-neue`
 - [x] Tailwind CSS v4 via `@tailwindcss/vite`; `@theme` tokens in `src/assets/main.css`
@@ -276,6 +284,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** blank app with theme + one tooltipped button deploys to Pages.
 
 ### Phase 2 — Domain Core (no UI)
+
 - [x] Types for the project schema (§5), palette constants (§4.1), mode metadata (§1 dims/cell sizes)
 - [x] Project factory per mode (sensible defaults: blank charset, fg=white/bg=black-equivalents, one empty screen)
 - [x] Character ops as pure functions: set/clear pixel, fill, clear, invert, shift L/R/U/D (wrap), rotate L/R, flip H/V
@@ -290,6 +299,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
   within the same bounds (cells falling outside are dropped, vacated cells cleared). Flag in UI copy.
 
 ### Phase 3 — Persistence & Project Manager View
+
 - [x] localStorage repository (index + per-project keys, quota-error handling; compact JSON
       in storage, pretty JSON for downloads; corrupt entries tolerated)
 - [x] Pinia store: project list, load/save/autosave (debounced on mutation), dirty flag
@@ -303,6 +313,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** full project lifecycle works across page reloads; bad uploads rejected gracefully.
 
 ### Phase 4 — Character Pixel Editor
+
 - [x] 8×8 grid editor bound to selected character: left-click/drag draws, right-click/drag erases
       (per PROMPT: click toggles pixel on/off in fg color; drags draw); context-menu suppressed
 - [x] Pixels render in current fg color; unset pixels in current bg color (per active mode's color model)
@@ -313,6 +324,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** edit a character end-to-end with undo/redo working for every operation.
 
 ### Phase 5 — Character Set Picker
+
 - [x] 8-wide × 32-tall canvas grid rendering all 256 chars with their mode-correct colors
 - [x] Click selects character (highlight ring) → pixel editor + screen-draw brush
 - [x] Live re-render as the current character is edited
@@ -322,6 +334,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** selection flows to pixel editor; GMII paging + conversion work.
 
 ### Phase 6 — Color System
+
 - [x] 2×8 color picker: 16 swatches, transparent as checkerboard, **F**/**B** badges overlaid
       on current fg/bg swatches (badge contrast handled for light/dark swatches)
 - [x] Left-click sets foreground; right-click sets background (plus small F/B mode toggle for
@@ -334,6 +347,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** each mode's color behavior matches §1 table; renders update everywhere live.
 
 ### Phase 7 — Screen Editor
+
 - [x] Canvas grid: 32×24 (8px cells) or 40×24 (6px cells, Text Mode), scaled 1×–8×
 - [x] Left-click/drag paints current character; right-click/drag clears (to char 0);
       context-menu suppressed
@@ -346,6 +360,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** draw a full screen with multiple screens, all toolbar ops undoable.
 
 ### Phase 8 — Keyboard Shortcuts & Polish
+
 - [x] Shortcut map: Ctrl/Cmd+Z undo, Shift+Ctrl/Cmd+Z redo, Ctrl/Cmd+S save, Esc back,
       `[`/`]` prev/next character, `+`/`-` scale, `G` grid, `F` fill, `C` clear, `I` invert,
       `R`/`Shift+R` rotate, `H`/`V` flip, Alt+arrows shift, `,`/`.` screens, `N` new project
@@ -362,6 +377,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** app fully drivable via documented shortcuts; tooltips accurate.
 
 ### Phase 9 — Tablet/Mobile Friendliness
+
 - [x] Responsive layout: below `lg` the two columns become Character / Screen tabs; side by
       side at `lg`+. Screen viewport scrolls/pans when zoomed past the panel.
 - [x] Touch drawing (pointer events) for pixel and screen editors; F/B toggle covers missing
@@ -372,6 +388,7 @@ Every button: Lucide icon + tooltip showing label **and keyboard shortcut**.
 - **Exit criteria:** core editing workflows completable on a tablet.
 
 ### Phase 10 — README, Screenshot & Release
+
 - [x] README: project description, feature list, screenshot placeholder, TMS9918 background links,
       dev setup (`npm i && npm run dev`), build/deploy instructions, keyboard shortcut table, license note
 - [~] Screenshot of the editor with a sample project — needs a browser capture by the user;
@@ -485,6 +502,7 @@ Formats (committed unless marked stretch):
 ### 9.4 Phases
 
 #### Phase 11 — App Icon & Favicon ✅
+
 - [x] Monochrome app icon per Decision 4 — a retro pixel-art "invader" glyph (rounded top,
       two eyes, legs) on a black tile; reads as retro character graphics and stays crisp at
       favicon sizes. Single source bitmap in `scripts/generate-icons.mjs`.
@@ -499,6 +517,7 @@ Formats (committed unless marked stretch):
   production build. (Rerun `node scripts/generate-icons.mjs` to regenerate from the bitmap.)
 
 #### Phase 12 — Character Byte Box: multi-format + paste-to-set ✅
+
 - [x] New domain `src/domain/bytes.ts`: `formatBytes(bytes, radix)` and `parseBytes(text)`
       (tolerant tokenizer per Decision 5 — infers hex vs decimal, strips `$`/`0x` and a leading
       `.byte`/`db`/`DATA`+line-number, returns 8 in-range bytes or `null`). 13 Vitest specs
@@ -516,6 +535,7 @@ Formats (committed unless marked stretch):
   173 green, type-check + build + lint clean.
 
 #### Phase 13 — Export system (screens + character sets) ✅
+
 - [x] Pure formatters under `src/domain/export/`: `tables.ts` (segment model + `patternTableBytes`
       / `colorTableBytes` (nibble-packed) / `nameTableBytes` + `charsetSegments`/`screenSegments`),
       `assembly.ts` (one builder for ca65 `.byte` & Z80 `db`), `basic.ts` (numbered `REM`/`DATA`,
@@ -538,6 +558,7 @@ Formats (committed unless marked stretch):
   round-trips the on-screen data; full suite 186 green, type-check + build + lint clean.
 
 #### Phase 14 — README, Versioning & Release ✅
+
 - [x] README: new **Export** section (formats table + entry points + Magellan binary-interop
       note), byte-box hex/decimal + paste bullet, intro/feature-list refresh.
 - [x] PLAN Current Status + checkboxes updated.
@@ -641,6 +662,7 @@ stacked char cells; 32 pattern columns × 6 row-groups = 192 patterns cover the 
 ### 10.5 Phases
 
 #### Phase 15 — Multicolor Domain & Data Model ✅
+
 - [x] `types.ts`: added `'multicolor'` to `ProjectType`; added `MulticolorColors`
       (`Record<string, never>` marker) to the `ProjectColors` union + `isMulticolorColors`
       narrowing (`!fg && !groups && !rows`); added `backdrop?: ColorIndex` to `ProjectSettings`.
@@ -664,6 +686,7 @@ stacked char cells; 32 pattern columns × 6 row-groups = 192 patterns cover the 
   hardware tables synthesised, all under test; no UI yet.
 
 #### Phase 16 — Multicolor Editor UI ✅
+
 - [x] `NewProjectDialog`: added **Multicolor Mode** as a fourth mode option (no charset-mode
       sub-choice; the existing `type === 'graphics2'` gate already suppresses it); creating
       one routes to the editor and the factory ignores `g2CharsetMode`.
@@ -701,6 +724,7 @@ stacked char cells; 32 pattern columns × 6 row-groups = 192 patterns cover the 
   in this environment.)*
 
 #### Phase 17 — Multicolor Export ✅
+
 - [x] `src/domain/export/tables.ts`: new `multicolorScreenSegments` — one Pattern Generator
       per selected screen (`mc_patterns[_n]`, 1536 bytes, `perLine` 8) + one shared Name Table
       (`mc_names`, 768 bytes, `perLine` 32), built on `multicolor.ts` (`patternTableBytes`/
@@ -717,13 +741,13 @@ stacked char cells; 32 pattern columns × 6 row-groups = 192 patterns cover the 
       multicolor with no change.
 - [x] Vitest (4 new, suite **209 green**): single-screen segment set + byte lengths + name
       table endpoints (0…191), per-screen label suffixes with a single shared name table,
-      nibble packing of a painted block, and the `screenSegments` dispatch. Type-check + build
-      + lint clean; changed SFC/module transform cleanly through Vite dev.
+      nibble packing of a painted block, and the `screenSegments` dispatch. Type-check + build + lint clean; changed SFC/module transform cleanly through Vite dev.
 - **Exit criteria:** ✅ a multicolor screen exports to ca65, Z80, BASIC, binary, and PNG; the
   synthesised Pattern Generator round-trips the on-screen data (verified by the packing/decode
   specs from Phase 15 + the segment specs here).
 
 #### Phase 18 — Sample, README, Versioning & Release
+
 - [x] Bundled a multicolor **sample project** — `Sample — Vista` in `src/samples/index.ts`
       (`multicolorSample`): a 64×48 chunky scene (two-tone sky, triangular hills, a rimmed sun,
       clouds) plus a full 16-colour palette strip along the bottom. Loadable from the manager's
@@ -770,6 +794,7 @@ Text ("Text Greeting") and Multicolor ("Vista") samples are unchanged.
 ### 11.2 Phase 19
 
 #### Phase 19 — Sample Refresh, README & Release
+
 - [x] Rewrote the two weak samples in `src/samples/index.ts`: `platformSample`
       (`platform-climb`) and `spaceSample` (`star-voyager`), replacing `landscapeSample`
       and `iconsSample`. Added canvas-drawing helpers (disc/ring/blit/gradient/text) and a
@@ -879,6 +904,7 @@ https://acwright.github.io/TMS9918-EDITOR/#p=1H4sIA…
 ### 12.5 Phases
 
 #### Phase 20 — Assembly Label Case ✅
+
 - [x] `src/domain/export/labels.ts`: `LabelCase`, `LABEL_CASES` (id + UI label + example),
       `isLabelCase` and `applyLabelCase(label, case)` per §12.3 — a token split on `_` and
       rejoin, so digits stay attached (`char_patterns_1` → `CharPatterns1`).
@@ -897,6 +923,7 @@ https://acwright.github.io/TMS9918-EDITOR/#p=1H4sIA…
   byte-identical to `v1.2.1`, and the choice survives a reload.
 
 #### Phase 21 — Screen Pointer Status ✅
+
 - [x] `src/domain/screenStatus.ts`: `screenStatus(project, screen, cell | null)` → `{ active,
       coords, pixel, details }` per Decision 16, plus `formatScreenStatus` for the one-line
       rendering. Pure, no Vue. Out-of-bounds cells fall back to the idle form.
@@ -912,6 +939,7 @@ https://acwright.github.io/TMS9918-EDITOR/#p=1H4sIA…
   the cell's mode-relevant data; the fixed-height line keeps the layout still.
 
 #### Phase 22 — Share Links ✅
+
 - [x] `src/domain/share.ts`: `encodeShare`/`decodeShare` per §12.4 (chunked base64url,
       gzip through a `pump` helper over Compression Streams with the `0` plain-scheme
       fallback, `ShareLinkError` for damaged payloads, `deserializeProject` for schema
@@ -939,6 +967,7 @@ https://acwright.github.io/TMS9918-EDITOR/#p=1H4sIA…
   every changed module; no in-browser pass — no browser driver in this environment.)*
 
 #### Phase 23 — README, Versioning & Release ✅
+
 - [x] README: **Labels** paragraph in the Export section, a new **Sharing** section, pointer
       status and share links in the feature list, intro refreshed.
 - [x] PLAN Current Status + checkboxes updated.
@@ -983,6 +1012,7 @@ One phase (24), presentation only — no domain, store, or persistence changes.
 ### 13.3 Phases
 
 #### Phase 24 — Manager Layout & Release ✅
+
 - [x] `ProjectManagerView.vue`: page container `max-w-3xl` → `max-w-5xl` (Decision 19).
 - [x] Timestamp moved out of the open-project button, given `tabular-nums` so the rows'
       dates align and `truncate` so it yields before the layout does (Decision 20).
@@ -1201,14 +1231,14 @@ export interface SpriteAnimation {
 
 export interface ProjectSettings {
   g2CharsetMode?: G2CharsetMode
-  backdrop?: ColorIndex     // multicolor + sprite
-  spriteSize?: 8 | 16       // sprite only
-  spriteMag?: 1 | 2         // sprite only
+  backdrop?: ColorIndex // multicolor + sprite
+  spriteSize?: 8 | 16 // sprite only
+  spriteMag?: 1 | 2 // sprite only
 }
 
 export interface Project {
   /* …unchanged… */
-  animations?: SpriteAnimation[]   // sprite only
+  animations?: SpriteAnimation[] // sprite only
 }
 ```
 
@@ -1296,6 +1326,7 @@ every place that enumerates modes — check each of these during Phase 25/26 and
 ### 14.8 Phases
 
 #### Phase 25 — Sprite Domain & Data Model ✅
+
 - [x] `types.ts`: `'sprite'` added to `ProjectType`; new `SpriteSize` (8|16), `SpriteMag` (1|2),
       `SpriteColors` and `SpriteAnimation`; `ProjectSettings` gained `spriteSize`/`spriteMag`
       (and `backdrop` now documents its sprite use); `Project` gained `animations?`;
@@ -1340,6 +1371,7 @@ every place that enumerates modes — check each of these during Phase 25/26 and
   through a share link, and pixel-addressed at both sizes, all under test; no UI yet.
 
 #### Phase 26 — Sprite Editor UI ✅
+
 - [x] `NewProjectDialog`: fifth mode card, with an 8×8 / 16×16 sub-choice shown only for
       `type === 'sprite'` (same slot the GMII charset-mode choice occupies); defaults to 16×16.
 - [x] `PixelEditor.vue` generalised to a purely presentational grid: `pixels: boolean[]` +
@@ -1408,6 +1440,7 @@ every place that enumerates modes — check each of these during Phase 25/26 and
   no in-browser pass — no browser driver in this environment.)*
 
 #### Phase 27 — Animations & Live Preview ✅
+
 - [x] `stores/editor.ts`: `selectedAnimation`/`selectAnimation`, `animations`,
       `animationCount`, `currentAnimation`, `frameCount`, `previewSlot`, and undoable
       `addAnimation` · `removeAnimation` (never the last one) · `renameAnimation` ·
@@ -1450,6 +1483,7 @@ every place that enumerates modes — check each of these during Phase 25/26 and
   build; no in-browser pass, no browser driver in this environment.)*
 
 #### Phase 28 — Sprite Export ✅
+
 - [x] `src/domain/export/tables.ts`: `spriteSegments(project, selection)` per §14.6 —
       `sprite_patterns` (the full 2048-byte table, already in hardware quadrant order),
       `sprite_colors` (one byte per *slot*, so 256 at 8×8 and 64 at 16×16, masked to the low
@@ -1481,6 +1515,7 @@ every place that enumerates modes — check each of these during Phase 25/26 and
   index them as SAT pattern names.
 
 #### Phase 29 — Sample, README, Versioning & Release
+
 - [x] Bundled sprite **sample project** — `Sample — Astro Ace` (`astro-ace`) in
       `src/samples/index.ts`: nine 16×16 sprites across three animations — a ship cycling
       three exhaust lengths, a two-pose alien walk, and a four-frame explosion whose slots
@@ -1582,6 +1617,7 @@ map stops being three lists that could disagree with each other. Phases 30 and 3
 ### 15.3 Phases
 
 #### Phase 30 — Character Set Views ✅
+
 - [x] `utils/charsetView.ts` — the three views, their hints, and the type guard.
 - [x] `CharsetGrid.vue` takes `count` and `fit`, so one component draws a half of the set
       (scaled to height) and all of it (fixed to width, capped at 48px a glyph).
@@ -1598,6 +1634,7 @@ map stops being three lists that could disagree with each other. Phases 30 and 3
 - [x] Specs for the list and the picker.
 
 #### Phase 31 — The Keyboard Map & Help Sheet ✅
+
 - [x] `utils/shortcuts.ts` — every key declared once, with mode-aware matching, grouped
       sections for display, and platform-aware labels (`⇧⌘Z` on Apple, `Shift+Ctrl+Z`
       elsewhere).
@@ -1617,3 +1654,134 @@ map stops being three lists that could disagree with each other. Phases 30 and 3
 - **Exit criteria:** ✅ the character set reads on a short window, the keyboard map has one
   source of truth that the app and the README both render, and `v1.5.0` is tagged, pushed,
   and released.
+
+---
+
+## 16. Round 9 — Sprite Picker Views (target `v1.6.0`)
+
+Round 8 gave the character set three arrangements (§15, Decision 29) and left the sprite
+picker with one. The sheet is a *picture* of the set: it answers "which one looks like the
+ship" and nothing else. It cannot say what is in slot `$2A`, which slots are still free to
+draw in, or why a slot that clearly has pixels shows up blank on screen — and at 8×8, where
+the sheet is 16 slots across, each one is about 25 px in a 440 px column. Phase 32.
+
+Resolved: this shipped *with* the desktop release rather than before it, so both are
+`v1.6.0` — one tag carrying the Electron builds and these three layouts.
+
+### 16.1 Scope
+
+- Three arrangements for the sprite picker — **Sheet** (today's), **Grid**, **List** — with
+  the layout remembered across sessions, as the character set's is.
+- A list that answers the questions the picture can't: the slot number in both bases, the
+  hardware patterns it occupies, its colour, and whether it is blank or invisible.
+- Nothing below the components changes: no domain, store, project-file or export change.
+
+Out of scope, and deliberately: moving or copying a sprite between slots, multi-select, and
+dragging a slot into an animation. Those are edits to the artwork; this round is about
+*finding* a slot.
+
+### 16.2 Decisions
+
+- **Decision 35 — the same three-way choice, in the sprite vocabulary.** Sheet / Grid /
+  List, one click each, persisted — the shape of Decision 29, so a user who has learned the
+  character set panel already knows this one. *Sheet* rather than *Blocks*: the whole set is
+  one square image here, not two halves of 128.
+- **Decision 36 — Grid is fixed-size cells that wrap, not the sheet with a scrollbar.** The
+  sprite sheet is square by construction — 16 × 16 slots of 8 px or 8 × 8 of 16 px, 128 ×
+  128 logical pixels either way (§14.5) — so "fit the width and let it run tall", which is
+  what the character set's grid does with its 8 × 32 set, would produce the same square
+  picture the Sheet view already gives. The grid's value is the *fixed* cell: 48 px a slot,
+  as many a row as the column fits, scrolling when they don't. Consequence: a canvas per
+  slot (up to 256) rather than one sheet canvas — the same count `CharsetList` already
+  mounts as rows, and the same total pixels the sheet draws, spread over more elements.
+- **Decision 37 — the sprite view is its own preference.** `spriteView` beside
+  `charsetView` in `preferences.ts`, not a shared "picker layout": the two panels have
+  different vocabularies (`blocks` is not a sprite view), a project is only ever one or the
+  other, and each is validated on read against its own guard. Default `sheet`, so an
+  existing user's picker does not move under them.
+- **Decision 38 — the list carries what the sheet cannot say.** Per row: the slot in both
+  bases (`#42 · $2A`), the hardware patterns it occupies from `patternsForSlot` (`pat 12` at
+  8×8, `pat 48–51` at 16×16, since a 16×16 sprite is four patterns), its colour by name from
+  `PALETTE`, and two badges — **Blank** when every byte of every pattern in
+  `patternsForSlot` is 0, and **Invisible** when `spriteColorOf` is 0. The sheet marks colour 0 with a magenta corner (`INVISIBLE_MARKER_HEX`); a
+  list can name it, which is the difference between a hint and an answer.
+- **Decision 39 — the list is a listbox, on the Decision 31 contract.** One roving
+  `tabindex`, `ArrowUp`/`ArrowDown` by one, `PageUp`/`PageDown` by `sheetColumns(size)` —
+  one row of the sheet, 16 at 8×8 and 8 at 16×16 — `Home`/`End` to the ends, and the
+  selected row scrolled into view however the selection changed, including `[` / `]` from
+  `EditorView`. Grid gets the scroll-into-view and not the arrow handling, exactly the split
+  the character set's grid and list already have.
+- **Decision 40 — every view mutates one thing.** `editor.selectSprite(slot)` is the only
+  call any of the three makes, so the byte box, the animation frame strip, the preview and
+  the export keep reading `selectedSprite` and none of them learns that layouts exist.
+
+### 16.3 Phases
+
+#### Phase 32 — Sprite Picker Views ✅
+
+- [x] `src/renderer/src/utils/spriteView.ts` — `SpriteView = 'sheet' | 'grid' | 'list'`,
+      `SPRITE_VIEWS` (view, label, tooltip hint), `DEFAULT_SPRITE_VIEW = 'sheet'`,
+      `isSpriteView`. Mirrors `utils/charsetView.ts` so `preferences.ts` can validate a
+      stored value without importing a component. Hints in the existing voice:
+      *Sheet — every slot at once, scaled to fit the space. Best with height to spare.* /
+      *Grid — fixed-size slots, as many a row as fit, scrolling. Best for picking one out.* /
+      _List — one slot a row with its number, colour and patterns. Best for finding a sprite
+      by number._
+- [x] `src/renderer/src/persistence/preferences.ts` — `spriteView` alongside `labelCase`
+      and `charsetView`, guarded on read (Decision 37).
+- [x] `src/renderer/src/components/editor/SpriteCell.vue` **(new)** — one slot: a canvas at
+      the project's sprite size drawn with `fillBackdrop` + `drawSprite` + `spriteColorOf`,
+      the colour-0 corner marker, a selection ring, `data-slot`, and a click through to
+      `editor.selectSprite`. Used by the grid; the list row draws its own at row scale.
+- [x] `src/renderer/src/components/editor/SpriteGridView.vue` **(new)** — `min-h-0 flex-1
+    overflow-y-auto`, CSS grid `repeat(auto-fill, minmax(48px, 1fr))`, and a
+      `watch(() => editor.selectedSprite)` that scrolls `[data-slot]` into view with
+      `block: 'nearest'` (Decision 39).
+- [x] `src/renderer/src/components/editor/SpriteList.vue` + `SpriteListRow.vue` **(new)** —
+      the listbox and its rows, mirroring `CharsetList` / `CharsetListRow`: roving
+      `tabindex`, the key handling of Decision 39, focus following the selection only while
+      the list already has it, and the row content of Decision 38.
+- [x] `src/renderer/src/components/editor/SpritePicker.vue` — the three-way radiogroup
+      (`aria-label="Sprite layout"`, icons `LayoutGrid` / `Grid3x3` / `List`), persisted via
+      `savePreferences`; header becomes `flex-wrap` like the character set's, since the
+      three buttons plus Settings and Export no longer fit the column in one row; the
+      `min-h-64` floor stays. `SpriteGrid.vue` is untouched and becomes the Sheet view.
+- [x] Specs — `SpritePicker.spec.ts` (the three layouts, `sheet` by default, the choice
+      surviving a remount, and what each layout puts in the DOM), `SpriteList.spec.ts` (row
+      content and both badges, arrows / PageUp / PageDown at each sprite size / Home / End,
+      the roving tabindex, and scroll-into-view when the selection changes from outside),
+      and a `preferences.spec.ts` case for a stored `spriteView` of `"blocks"` falling back
+      to `sheet`.
+- [x] README — the "Character set panel, three ways" bullet gains its sprite counterpart,
+      and the **Sprites** section notes the three views and that the choice is remembered
+      per browser.
+- [x] Version bump, suite green, lint + type-check + both builds clean.
+
+**Exit criteria:** ✅ in a sprite project the picker offers Sheet / Grid / List; the choice
+survives a reload and is independent of the character set's; the list finds slot `$2A` by
+number and says which slots are blank and which are invisible; `[` / `]` keep the selection
+in view in every layout; and the animation panel, byte box, preview and export are
+byte-for-byte unchanged.
+
+**Two things the phase list did not anticipate**, both found in the running app rather than
+by inspection:
+
+- **A layout switch is not a selection change**, so Decision 39's watcher did not fire on
+  one. Coming to the List to read the details of the slot you just picked in the Sheet
+  landed you at the top of the set with the selection off screen. Both new views now reveal
+  the selection `onMounted` as well as on change — measured: switching to Grid at slot 63
+  scrolls to 314, to List 1850, the selection visible in both. `CharsetList` has the same
+  gap and was left alone; it belongs to Phase 30, not here.
+- **`:slot` is a deprecated Vue 2 attribute** and the linter rejects it, so the cell and row
+  components take `slotIndex` however natural a prop name `slot` would otherwise be.
+
+**The named risk did not materialise.** At 8×8 — 256 slots, 256 canvases — switching to Grid
+costs 32 ms and to List 40 ms of script and DOM work, measured in the packaged app. No
+fallback to one canvas a row was needed. (Measured with the window occluded, so paint is
+deferred and excluded; the canvas draw the risk was about is in the number.)
+
+**Risk worth naming:** 256 cells at 8×8 is 256 canvases, each redrawn by its own
+`watchEffect`. That is the count `CharsetList` already mounts and the pixel count the sheet
+already draws, so the expectation is that it is fine — but if a slow paint shows up when
+switching to Grid on a full sheet, the fallback is one canvas a row (16 canvases) with the
+click arithmetic the sheet already uses, at the cost of per-cell CSS.

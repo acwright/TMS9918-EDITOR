@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { DEFAULT_CHARSET_VIEW } from '@/utils/charsetView'
+import { DEFAULT_SPRITE_VIEW } from '@/utils/spriteView'
 import {
   DEFAULT_PREFERENCES,
   PREFERENCES_KEY,
@@ -30,9 +31,23 @@ describe('preferences', () => {
     expect(loadPreferences().charsetView).toBe(DEFAULT_CHARSET_VIEW)
   })
 
+  it('round-trips the sprite layout, separately from the character set’s', () => {
+    savePreferences({ spriteView: 'list' })
+    expect(loadPreferences().spriteView).toBe('list')
+    expect(loadPreferences().charsetView).toBe(DEFAULT_CHARSET_VIEW) // its own preference
+
+    // `blocks` is a character-set layout; the sprite picker has no such view.
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ spriteView: 'blocks' }))
+    expect(loadPreferences().spriteView).toBe(DEFAULT_SPRITE_VIEW)
+  })
+
   it('merges patches instead of replacing the record', () => {
     savePreferences({ labelCase: 'camel' })
-    expect(savePreferences({})).toEqual({ labelCase: 'camel', charsetView: DEFAULT_CHARSET_VIEW })
+    expect(savePreferences({})).toEqual({
+      labelCase: 'camel',
+      charsetView: DEFAULT_CHARSET_VIEW,
+      spriteView: DEFAULT_SPRITE_VIEW,
+    })
   })
 
   it('falls back to defaults for corrupt or unknown values', () => {
@@ -58,6 +73,7 @@ describe('preferences', () => {
     expect(savePreferences({ labelCase: 'upper' }, broken)).toEqual({
       labelCase: 'upper',
       charsetView: DEFAULT_CHARSET_VIEW,
+      spriteView: DEFAULT_SPRITE_VIEW,
     })
   })
 })

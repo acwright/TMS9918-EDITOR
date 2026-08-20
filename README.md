@@ -49,6 +49,10 @@ single self-contained link.
 - **Character set panel, three ways** — the set as two scaled blocks of 128, as a scrolling grid
   of eight glyphs a row at a fixed size, or as a list carrying each character's code and whether
   its slot is still blank. Pick whichever suits the window; the choice is remembered per browser.
+- **Sprite picker, three ways** — the whole set as one scaled sheet, as a scrolling grid of
+  fixed-size slots, or as a list carrying each slot's number, the hardware patterns it occupies,
+  its colour, and whether it is blank or invisible. Remembered per browser, and independent of
+  the character set's layout.
 - **Character byte box** — view the selected glyph as comma-separated **hex** or **decimal**,
   copy it, or paste either form (or a `.byte` / `db` / `DATA` line) back in to set the character.
 - **Export** to 6502 (`ca65`) or Z80 assembly, BASIC `DATA`, raw binary, or PNG — with separate
@@ -97,7 +101,18 @@ Useful hardware facts, all of which the editor documents rather than enforces:
 - **Lower sprite numbers draw in front** of higher ones.
 - **Colour 0 is transparent** — the sprite is invisible but still consumes one of the four
   per-line slots. The picker marks such sprites so an invisible one isn't mistaken for an empty
-  one.
+  one, and the list layout names both cases outright.
+
+The picker offers three layouts, and remembers which one you picked (per browser, and separately
+from the character set panel's):
+
+- **Sheet** — every slot at once in one square image, scaled to the space. Best with height to
+  spare, and the layout the PNG export writes.
+- **Grid** — fixed-size slots, as many a row as the column fits, scrolling. Best for picking a
+  sprite out when the sheet has shrunk each slot to a thumbnail.
+- **List** — one slot a row with its number in both bases, the patterns it occupies (`pat 48–51`
+  for a 16×16 quad), its colour by name, and **Blank** / **Invisible** badges. Best for finding a
+  sprite by number, or for finding a free slot to draw in.
 
 Animations are an editor concept, not a hardware one: each is an ordered list of sprite slots
 with a frame rate, played back in the preview and exported as a table of pattern numbers you can
@@ -231,6 +246,16 @@ selection while it holds it.
 | `↑` / `↓`             | Previous or next character |
 | `PageUp` / `PageDown` | Jump eight characters      |
 | `Home` / `End`        | First or last character    |
+
+### Sprite list
+
+The list layout of the sprite picker is a listbox too, on the same contract.
+
+| Key                   | Action                                     |
+| --------------------- | ------------------------------------------ |
+| `↑` / `↓`             | Previous or next sprite                    |
+| `PageUp` / `PageDown` | Jump one sheet row (16 at 8×8, 8 at 16×16) |
+| `Home` / `End`        | First or last sprite                       |
 
 ### Sprite projects
 
