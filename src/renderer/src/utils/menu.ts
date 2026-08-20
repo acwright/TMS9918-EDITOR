@@ -3,47 +3,44 @@
  *
  * The menu bar is built in the main process, but what it *offers* is decided
  * here: which actions mean something in the view on screen, and what they are
- * called in the open mode. Both answers already exist in the shortcut map, so
- * this file reads them off it rather than restating them — a menu item and its
- * keyboard shortcut cannot disagree about a mode they were told about by the
- * same predicate (D10).
+ * called in the open mode. The first answer comes off the shortcut map's own
+ * predicate rather than a restatement of it, so a menu item and its keyboard
+ * shortcut cannot disagree about a mode (D10). The second comes off
+ * `MENU_ACTIONS`, which words items as menu titles — the help sheet's
+ * sentences are not menu titles, so the two are written separately.
  *
  * Every function is a no-op in the browser build, where `window.api` is
  * undefined. The views call them unconditionally.
  */
 
 import type { ProjectType } from '@/domain/types'
-import type { MenuContext } from '@shared/menu'
+import { MENU_ACTIONS, type MenuContext } from '@shared/menu'
 import { desktop } from './desktop'
-import {
-  EDITOR_SHORTCUTS,
-  MANAGER_SHORTCUTS,
-  describeShortcut,
-  editorActionsFor,
-  type Shortcut,
-} from './shortcuts'
+import { MANAGER_SHORTCUTS, editorActionsFor } from './shortcuts'
 
-/** Labels for a set of shortcuts, worded for the open mode. */
-function labelsFor(
-  shortcuts: readonly Shortcut[],
-  type: ProjectType | null,
-): Record<string, string> {
+/**
+ * Every menu title, worded for the open mode. Main is sent the whole table
+ * rather than just the items on screen — it is a couple of dozen short strings,
+ * and sending all of them means main never has to decide what a missing one
+ * should fall back to.
+ */
+function labelsFor(type: ProjectType | null): Record<string, string> {
   return Object.fromEntries(
-    shortcuts.map((entry) => [entry.action, describeShortcut(entry, type)]),
+    MENU_ACTIONS.map((entry) => [
+      entry.action,
+      type === 'sprite' && entry.spriteLabel ? entry.spriteLabel : entry.label,
+    ]),
   )
 }
 
 /** What the menu offers while a project of `type` is open. */
 export function editorMenuContext(type: ProjectType | null): MenuContext {
-  return { enabled: editorActionsFor(type), labels: labelsFor(EDITOR_SHORTCUTS, type) }
+  return { enabled: editorActionsFor(type), labels: labelsFor(type) }
 }
 
 /** What the menu offers on the project list, where no project is open. */
 export function managerMenuContext(): MenuContext {
-  return {
-    enabled: MANAGER_SHORTCUTS.map((entry) => entry.action),
-    labels: labelsFor(MANAGER_SHORTCUTS, null),
-  }
+  return { enabled: MANAGER_SHORTCUTS.map((entry) => entry.action), labels: labelsFor(null) }
 }
 
 /** Tell the native menu what this view offers. */

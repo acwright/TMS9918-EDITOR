@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { MENU_ACTIONS } from '@shared/menu'
 import { editorMenuContext, managerMenuContext } from '../menu'
-import { EDITOR_SHORTCUTS, MANAGER_SHORTCUTS, describeShortcut } from '../shortcuts'
+import { EDITOR_SHORTCUTS, MANAGER_SHORTCUTS } from '../shortcuts'
 
 /**
  * The native menu's table lives in `src/shared/` because the main process
@@ -11,10 +11,72 @@ import { EDITOR_SHORTCUTS, MANAGER_SHORTCUTS, describeShortcut } from '../shortc
 
 const SECTIONS = ['file', 'edit', 'pattern', 'view', 'help']
 
+/**
+ * Words Title Case leaves lowercase — but never as the first or last word of a
+ * title. The macOS HIG's list, which is why "Back to Projects" is right and
+ * "Back To Projects" is not.
+ */
+const MINOR_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'as',
+  'at',
+  'but',
+  'by',
+  'for',
+  'from',
+  'in',
+  'nor',
+  'of',
+  'on',
+  'or',
+  'so',
+  'the',
+  'to',
+  'up',
+  'yet',
+  'with',
+])
+
+/** Whether `title` is Title Case: every word capitalised bar the minor ones. */
+function isTitleCase(title: string): boolean {
+  const words = title.split(' ')
+  return words.every((word, index) => {
+    // Hyphens and slashes join words that each get their own capital.
+    const parts = word.split(/[-/]/).filter(Boolean)
+    return parts.every((part, partIndex) => {
+      const first = index === 0 && partIndex === 0
+      const last = index === words.length - 1 && partIndex === parts.length - 1
+      if (!first && !last && MINOR_WORDS.has(part.toLowerCase())) return part === part.toLowerCase()
+      return /^[^a-z]/.test(part)
+    })
+  })
+}
+
 /** Every action the editor and the manager dispatch, ignoring the duplicate `help`. */
 const ACTIONS = [
   ...new Set([...EDITOR_SHORTCUTS, ...MANAGER_SHORTCUTS].map((entry) => entry.action)),
 ]
+
+describe('isTitleCase', () => {
+  // The checker below is the only thing standing between a menu title and the
+  // help sheet's voice, so it is worth knowing it rejects what it should.
+  it('rejects the sentence-case titles it replaced', () => {
+    expect(isTitleCase('Save now')).toBe(false)
+    expect(isTitleCase('Keyboard shortcuts')).toBe(false)
+    expect(isTitleCase('Zoom in')).toBe(false)
+    expect(isTitleCase('Back To Projects')).toBe(false)
+  })
+
+  it('accepts the forms a native menu uses', () => {
+    expect(isTitleCase('Back to Projects')).toBe(true)
+    expect(isTitleCase('Zoom In')).toBe(true)
+    expect(isTitleCase('Play/Pause')).toBe(true)
+    expect(isTitleCase('Aspect-Corrected Preview')).toBe(true)
+    expect(isTitleCase('New Project…')).toBe(true)
+  })
+})
 
 describe('the menu table', () => {
   it('carries every editor and manager action exactly once', () => {
@@ -25,13 +87,24 @@ describe('the menu table', () => {
     for (const entry of MENU_ACTIONS) expect(ACTIONS).toContain(entry.action)
   })
 
-  it('labels each item with the shortcut’s own description', () => {
-    const descriptions = new Map<string, string>(
-      [...EDITOR_SHORTCUTS, ...MANAGER_SHORTCUTS].map((entry) => [entry.action, entry.description]),
+  // The help sheet's descriptions are sentences ("Save now", "Fill the
+  // character"); a menu title is not. Menu labels are written separately for
+  // that reason, so this is what keeps them honest.
+  it('titles every item the way a native menu does', () => {
+    // Collected rather than asserted one by one, so a failure names every
+    // label that needs rewording instead of only the first.
+    const wrong = MENU_ACTIONS.flatMap((entry) => [entry.label, entry.spriteLabel ?? []])
+      .flat()
+      .filter((label) => !isTitleCase(label))
+    expect(wrong).toEqual([])
+  })
+
+  it('re-words only the items the shortcut map says change in a sprite project', () => {
+    const varies = new Set<string>(
+      EDITOR_SHORTCUTS.filter((entry) => entry.spriteDescription).map((entry) => entry.action),
     )
-    for (const entry of MENU_ACTIONS) {
-      expect(entry.label).toBe(descriptions.get(entry.action))
-    }
+    const reworded = MENU_ACTIONS.filter((entry) => entry.spriteLabel).map((entry) => entry.action)
+    expect(reworded.filter((action) => !varies.has(action))).toEqual([])
   })
 
   it('puts every item in a known section', () => {
@@ -66,15 +139,23 @@ describe('what the menu offers', () => {
     expect(editorMenuContext('multicolor').enabled).not.toContain('fill')
   })
 
-  it('words the pattern items for a sprite project', () => {
-    expect(editorMenuContext('graphics1').labels['fill']).toBe('Fill the character')
-    expect(editorMenuContext('sprite').labels['fill']).toBe('Fill the sprite')
+  it('words the paging items for a sprite project', () => {
+    expect(editorMenuContext('graphics1').labels['prevChar']).toBe('Previous Character')
+    expect(editorMenuContext('sprite').labels['prevChar']).toBe('Previous Sprite')
+    expect(editorMenuContext('graphics1').labels['nextScreen']).toBe('Next Screen')
+    expect(editorMenuContext('sprite').labels['nextScreen']).toBe('Next Animation')
   })
 
-  it('takes its wording from describeShortcut, not a copy of it', () => {
-    const labels = editorMenuContext('sprite').labels
-    for (const entry of EDITOR_SHORTCUTS) {
-      expect(labels[entry.action]).toBe(describeShortcut(entry, 'sprite'))
+  it('leaves the mode-neutral items alone in a sprite project', () => {
+    // Short titles carry every mode, which is most of why they are short.
+    expect(editorMenuContext('sprite').labels['fill']).toBe('Fill')
+    expect(editorMenuContext('sprite').labels['rotateLeft']).toBe('Rotate Left')
+  })
+
+  it('sends a title for every item, whatever the mode', () => {
+    for (const type of ['graphics1', 'multicolor', 'sprite', null] as const) {
+      const labels = editorMenuContext(type).labels
+      for (const entry of MENU_ACTIONS) expect(labels[entry.action]).toBeTruthy()
     }
   })
 })

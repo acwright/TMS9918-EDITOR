@@ -6,8 +6,13 @@
  * own (D10). `src/renderer/src/utils/shortcuts.ts` stays the single source of
  * truth for what an action means; this table only says where it appears in the
  * menu bar and what it is called there. `menu.spec.ts` holds the two together —
- * every action in the union appears here exactly once, and every label matches
- * the shortcut's own description.
+ * every action in the union appears here exactly once, and nothing here is an
+ * action the map does not declare.
+ *
+ * Labels are **menu titles, not the shortcut descriptions**: Title Case, and as
+ * short as the surrounding menu allows, per the macOS HIG. "Save now" reads
+ * correctly in the help sheet and wrongly in a File menu, so the two are worded
+ * separately and `menu.spec.ts` checks the capitalisation.
  *
  * **No item carries an accelerator, deliberately.** A registered accelerator
  * fires the menu item *and* still delivers the keydown to the page (§3.5), so
@@ -28,48 +33,62 @@ export type MenuSection = 'file' | 'edit' | 'pattern' | 'view' | 'help'
 export interface MenuActionItem {
   /** The `EditorAction` or `ManagerAction` this item dispatches. */
   action: string
-  /** The item's label — the shortcut's description, re-worded per mode at runtime. */
+  /** The item's title, in Title Case. */
   label: string
+  /**
+   * The title in a sprite project, for the handful of items that page through
+   * something else there. Only an action whose shortcut carries a
+   * `spriteDescription` may have one — most items are short enough here to
+   * read correctly in every mode.
+   */
+  spriteLabel?: string
   section: MenuSection
   /** Start a new separated group at this item. */
   separatorBefore?: boolean
 }
 
 export const MENU_ACTIONS: readonly MenuActionItem[] = [
-  { action: 'newProject', label: 'New project', section: 'file' },
-  { action: 'save', label: 'Save now', section: 'file', separatorBefore: true },
-  { action: 'back', label: 'Back to the project list', section: 'file', separatorBefore: true },
+  // The ellipsis is the HIG's promise that the command asks for something
+  // before it does anything.
+  { action: 'newProject', label: 'New Project…', section: 'file' },
+  { action: 'save', label: 'Save', section: 'file', separatorBefore: true },
+  { action: 'back', label: 'Back to Projects', section: 'file', separatorBefore: true },
 
   { action: 'undo', label: 'Undo', section: 'edit' },
   { action: 'redo', label: 'Redo', section: 'edit' },
 
-  { action: 'prevChar', label: 'Previous character', section: 'pattern' },
-  { action: 'nextChar', label: 'Next character', section: 'pattern' },
-  { action: 'fill', label: 'Fill the character', section: 'pattern', separatorBefore: true },
-  { action: 'clear', label: 'Clear the character', section: 'pattern' },
-  { action: 'invert', label: 'Invert the character', section: 'pattern' },
-  { action: 'flipH', label: 'Flip horizontal', section: 'pattern', separatorBefore: true },
-  { action: 'flipV', label: 'Flip vertical', section: 'pattern' },
-  { action: 'rotateRight', label: 'Rotate right', section: 'pattern' },
-  { action: 'rotateLeft', label: 'Rotate left', section: 'pattern' },
   {
-    action: 'shiftLeft',
-    label: 'Shift the pattern left',
+    action: 'prevChar',
+    label: 'Previous Character',
+    spriteLabel: 'Previous Sprite',
     section: 'pattern',
-    separatorBefore: true,
   },
-  { action: 'shiftRight', label: 'Shift the pattern right', section: 'pattern' },
-  { action: 'shiftUp', label: 'Shift the pattern up', section: 'pattern' },
-  { action: 'shiftDown', label: 'Shift the pattern down', section: 'pattern' },
+  { action: 'nextChar', label: 'Next Character', spriteLabel: 'Next Sprite', section: 'pattern' },
+  { action: 'fill', label: 'Fill', section: 'pattern', separatorBefore: true },
+  { action: 'clear', label: 'Clear', section: 'pattern' },
+  { action: 'invert', label: 'Invert', section: 'pattern' },
+  { action: 'flipH', label: 'Flip Horizontal', section: 'pattern', separatorBefore: true },
+  { action: 'flipV', label: 'Flip Vertical', section: 'pattern' },
+  { action: 'rotateRight', label: 'Rotate Right', section: 'pattern' },
+  { action: 'rotateLeft', label: 'Rotate Left', section: 'pattern' },
+  { action: 'shiftLeft', label: 'Shift Left', section: 'pattern', separatorBefore: true },
+  { action: 'shiftRight', label: 'Shift Right', section: 'pattern' },
+  { action: 'shiftUp', label: 'Shift Up', section: 'pattern' },
+  { action: 'shiftDown', label: 'Shift Down', section: 'pattern' },
 
-  { action: 'prevScreen', label: 'Previous screen', section: 'view' },
-  { action: 'nextScreen', label: 'Next screen', section: 'view' },
-  { action: 'zoomIn', label: 'Zoom in', section: 'view', separatorBefore: true },
-  { action: 'zoomOut', label: 'Zoom out', section: 'view' },
-  { action: 'toggleGrid', label: 'Grid overlay', section: 'view', separatorBefore: true },
-  { action: 'playPause', label: 'Play or pause the animation', section: 'view' },
+  {
+    action: 'prevScreen',
+    label: 'Previous Screen',
+    spriteLabel: 'Previous Animation',
+    section: 'view',
+  },
+  { action: 'nextScreen', label: 'Next Screen', spriteLabel: 'Next Animation', section: 'view' },
+  { action: 'zoomIn', label: 'Zoom In', section: 'view', separatorBefore: true },
+  { action: 'zoomOut', label: 'Zoom Out', section: 'view' },
+  { action: 'toggleGrid', label: 'Grid Overlay', section: 'view', separatorBefore: true },
+  { action: 'playPause', label: 'Play/Pause', section: 'view' },
 
-  { action: 'help', label: 'Keyboard shortcuts', section: 'help' },
+  { action: 'help', label: 'Keyboard Shortcuts', section: 'help' },
 ]
 
 /**
