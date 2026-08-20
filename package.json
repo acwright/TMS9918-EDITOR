@@ -17,7 +17,7 @@
   "main": "./out/main/index.js",
   "desktopName": "tms9918-editor.desktop",
   "scripts": {
-    "postinstall": "node node_modules/electron/install.js",
+    "postinstall": "node scripts/install-electron.mjs",
     "icons": "node scripts/generate-icons.mjs && node build/gen-icon.mjs",
     "dev": "electron-vite dev",
     "build": "run-p type-check \"build-only {@}\" --",

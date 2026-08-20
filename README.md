@@ -13,6 +13,9 @@ hardware's sprite layer — 8×8 or 16×16 patterns with animation playback. Eve
 client-side; projects are saved in your browser, downloadable as JSON, and shareable as a
 single self-contained link.
 
+Runs in a browser, or as a native app for macOS, Windows and Linux — see
+**[Desktop](#desktop)**.
+
 ![Editor screenshot](docs/screenshot.png)
 
 
@@ -283,24 +286,101 @@ its animations, `+` / `-` zoom the animation preview, and `G` does nothing.
 Shortcuts are disabled while typing in a text field or while a dialog is open, and `Space` and
 `Enter` always belong to whichever control has focus.
 
+## Desktop
+
+The same editor as a native app for macOS, Windows and Linux. Download it from the
+[latest release](https://github.com/acwright/TMS9918-EDITOR/releases/latest):
+
+| Platform | File | Notes |
+| --- | --- | --- |
+| macOS (Apple silicon) | `tms9918-editor-<version>-mac-arm64.dmg` | Signed and notarized — opens without a Gatekeeper prompt |
+| Windows (x64) | `tms9918-editor-<version>-win-x64.exe` | NSIS installer. Unsigned, so SmartScreen warns on first run — *More info → Run anyway* |
+| Linux (x64) | `tms9918-editor-<version>-linux-x64.AppImage` | `chmod +x`, then run it |
+| Linux (x64) | `tms9918-editor-<version>-linux-x64.deb` | `sudo apt install ./tms9918-editor-<version>-linux-x64.deb` |
+
+Everything the web app does, the desktop app does — it is one renderer behind two shells,
+not a port. What it adds:
+
+- **A real menu bar**, with the keyboard map as accelerators. Menu items follow the open
+  project: a Sprite project says "Fill the sprite", a Multicolor project greys out the
+  pattern items, and the project list greys everything but *New project*.
+- **Native save and open dialogs.** Every export — assembly, BASIC, binary, PNG, project
+  JSON — goes through the system save sheet, so you choose the folder and the filename
+  instead of fishing the file out of `~/Downloads`. Each kind of export remembers the
+  directory you last used. Importing a project opens a real file panel.
+- **Its own storage.** Projects live in the app's own `userData` directory rather than in
+  a browser profile, so clearing browsing data cannot touch them, and they are flushed to
+  disk on the way out — an edit made a moment before you quit is there on relaunch.
+- **A window that remembers itself**, including which display it was on and whether it was
+  maximized.
+- **No network at all.** The web app is already client-side; the desktop app has no
+  browser, no address bar and no tab.
+
+The desktop app's projects are **separate** from the web app's — different storage, no
+sync. Move one across with *Download* and *Upload* in the project list, or a share link.
+
+### Building the desktop app from source
+
+`npm run build` is the Electron build (it bundles main, preload and renderer to `out/`);
+`npm run build:web` is the one that produces the Pages site. Packaging each platform is a
+separate command, and each has a prerequisite:
+
+```sh
+npm run icons        # regenerate build/icon.{icns,ico,png} from the master PNG
+npm run pack         # unpacked app in dist/mac-arm64 — no signing, quickest check
+npm run dist:mac     # → dist/*.dmg      requires a Developer ID cert + notarization credentials
+npm run dist:win     # → dist/*.exe      requires Wine (brew install --cask wine-stable)
+npm run dist:linux   # → dist/*.AppImage, *.deb   requires Docker running
+npm run dist         # all three, in that order
+```
+
+- **macOS** signs, notarizes and staples. It needs a *Developer ID Application* certificate
+  in the keychain and `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD` and `APPLE_TEAM_ID` in the
+  environment. Without them, use `npm run pack` — it skips signing entirely.
+- **Windows** builds the NSIS installer under Wine. The installer *runs* only on real
+  Windows: its script calls PowerShell's `Get-CimInstance`, which Wine stubs out.
+- **Linux** builds in a container, so nothing has to be installed on the host but Docker.
+
+If `npm run dev` or `npm run preview` dies with *"The requested module 'electron' does not
+provide an export named 'BrowserWindow'"*, the shell has `ELECTRON_RUN_AS_NODE=1` set —
+some editors' integrated terminals do — which makes the Electron binary run as plain Node.
+Run it as `env -u ELECTRON_RUN_AS_NODE npm run dev`.
+
 ## Development
 
 Requires Node 22.18+ (or 24.12+).
 
 ```sh
 npm install
-npm run dev        # start the dev server (http://localhost:5173)
+npm run dev        # the desktop app, with hot reload
+npm run dev:web    # the browser app (http://localhost:5173)
 npm run test:unit  # run the Vitest suite
 npm run lint       # oxlint + eslint
-npm run build      # type-check + production build to dist/
+npm run type-check # vue-tsc over the whole project
+npm run build      # the Electron bundle    → out/
+npm run build:web  # the standalone web app → dist/web/
 ```
+
+One renderer, two shells. `src/renderer/` is the editor and knows nothing about
+Electron; `src/main/` and `src/preload/` are the desktop shell, and `src/shared/`
+is the handful of types the two sides agree on. The platform differences the
+renderer *does* have — saving a file, mainly — sit behind small utilities that
+fall back to a browser download. See [CLAUDE.md](CLAUDE.md) for the layout and
+the decisions behind it, and [ELECTRON-PLAN.md](ELECTRON-PLAN.md) for the
+measurements they rest on.
 
 ## Deployment
 
-The repo ships a GitHub Actions workflow ([.github/workflows/deploy.yml](.github/workflows/deploy.yml))
-that lints, tests, builds, and deploys to **GitHub Pages** on every push to `main`. It sets
-Vite's `base` to `/<repo>/` automatically. To enable it, push to GitHub and set
-**Settings → Pages → Source: GitHub Actions**.
+The repo ships two workflows. [deploy.yml](.github/workflows/deploy.yml) lints, tests,
+builds and deploys to **GitHub Pages** on every push to `main`, setting Vite's `base` to
+`/<repo>/` automatically; to enable it, push to GitHub and set **Settings → Pages →
+Source: GitHub Actions**. [ci.yml](.github/workflows/ci.yml) runs the same gates on a pull
+request, where there is nothing to deploy.
+
+Both also run `electron-vite build`, so a change that breaks the main or preload process
+fails in CI rather than at the next release. Neither *packages* the desktop app: a signed,
+notarized dmg needs a macOS runner and Apple credentials, so the release artifacts are
+built locally with the commands under [Desktop](#building-the-desktop-app-from-source).
 
 ## License
 

@@ -1,3 +1,11 @@
+# Gate, build and publish the web editor to GitHub Pages.
+#
+# This is the workflow that runs on `main`; ci.yml runs the same gates on a
+# pull request, where there is nothing to deploy. The desktop artifacts are
+# *not* built here — a signed, notarized dmg needs a macOS runner and Apple
+# credentials (ELECTRON-PLAN §9). What runs here is the bundle-only smoke
+# check, so a change that breaks the main or preload process fails on `main`
+# rather than at the next release.
 name: Deploy to GitHub Pages
 
 on:
@@ -26,6 +34,11 @@ jobs:
           cache: npm
 
       - run: npm ci
+        name: Install
+        env:
+          # The Electron binary is 100 MB and is only needed to *run* the app.
+          # Neither build below launches it.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 
       - run: npx eslint . --no-cache && npx oxlint .
         name: Lint
@@ -33,8 +46,15 @@ jobs:
       - run: npm run test:unit -- --run
         name: Test
 
-      - run: npm run build
-        name: Build
+      # Smoke check for the desktop build: main, preload and renderer all
+      # bundle. Nothing downstream uses out/ — the deploy ships dist/web.
+      - run: npx electron-vite build
+        name: Build (Electron)
+
+      # `npm run build` is the *Electron* build. Pages wants the standalone
+      # renderer, which is a separate config and a separate output directory.
+      - run: npm run build:web
+        name: Build (web)
         env:
           # GitHub Pages serves project sites from /<repo>/
           VITE_BASE: /${{ github.event.repository.name }}/
