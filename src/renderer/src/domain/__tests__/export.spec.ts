@@ -140,7 +140,8 @@ describe('multicolorScreenSegments', () => {
 })
 
 describe('spriteSegments', () => {
-  const sprite = (size: 8 | 16 = 16) => createProject({ name: 'S', type: 'sprite', spriteSize: size })
+  const sprite = (size: 8 | 16 = 16) =>
+    createProject({ name: 'S', type: 'sprite', spriteSize: size })
   const ALL = { patterns: true, colors: true, animations: [] as number[] }
 
   it('emits the full 2048-byte pattern table, unreordered', () => {
@@ -230,7 +231,9 @@ describe('spriteSegments', () => {
     const project = sprite(8)
     project.animations = [{ name: 'A', frames: [1], fps: 8 }]
     expect(
-      spriteSegments(project, { patterns: false, colors: true, animations: [] }).map((s) => s.label),
+      spriteSegments(project, { patterns: false, colors: true, animations: [] }).map(
+        (s) => s.label,
+      ),
     ).toEqual(['sprite_colors'])
     expect(
       spriteSegments(project, { patterns: true, colors: false, animations: [0] }).map(
@@ -251,7 +254,12 @@ describe('spriteSegments', () => {
 })
 
 const SAMPLE: ByteSegment[] = [
-  { label: 'char_patterns', description: 'Character patterns', bytes: [0, 60, 66, 255], perLine: 4 },
+  {
+    label: 'char_patterns',
+    description: 'Character patterns',
+    bytes: [0, 60, 66, 255],
+    perLine: 4,
+  },
 ]
 
 describe('segmentsToAsm', () => {

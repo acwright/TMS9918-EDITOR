@@ -67,39 +67,36 @@ async function copy() {
 
 <template>
   <div class="flex items-center gap-1.5">
-      <AppButton
-        :label="radix === 'hex' ? 'Show as Decimal' : 'Show as Hex'"
-        @click="toggleRadix"
-      >
-        <span class="font-mono text-sm">{{ radix === 'hex' ? '$' : '#' }}</span>
-      </AppButton>
-      <input
-        v-model="draft"
-        type="text"
-        spellcheck="false"
-        autocapitalize="off"
-        autocomplete="off"
-        aria-label="Pattern bytes — paste hex or decimal to overwrite"
-        class="h-9 min-w-0 flex-1 rounded-sm border bg-ink-900 px-2 font-mono text-[11px] whitespace-nowrap text-ink-300 transition-colors focus:outline-none"
-        :class="
-          invalid
-            ? 'border-vdp-medium-red text-vdp-light-red'
-            : 'border-ink-700 hover:border-ink-500 focus:border-ink-300'
-        "
-        @focus="editing = true"
-        @input="
-          () => {
-            editing = true
-            invalid = false
-          }
-        "
-        @paste="onPaste"
-        @keydown.enter.prevent="commit"
-        @blur="commit"
-      />
-      <AppButton :label="copied ? 'Copied!' : 'Copy Bytes'" @click="copy">
-        <Check v-if="copied" class="size-4 text-vdp-medium-green" />
-        <Copy v-else class="size-4" />
-      </AppButton>
+    <AppButton :label="radix === 'hex' ? 'Show as Decimal' : 'Show as Hex'" @click="toggleRadix">
+      <span class="font-mono text-sm">{{ radix === 'hex' ? '$' : '#' }}</span>
+    </AppButton>
+    <input
+      v-model="draft"
+      type="text"
+      spellcheck="false"
+      autocapitalize="off"
+      autocomplete="off"
+      aria-label="Pattern bytes — paste hex or decimal to overwrite"
+      class="h-9 min-w-0 flex-1 rounded-sm border bg-ink-900 px-2 font-mono text-[11px] whitespace-nowrap text-ink-300 transition-colors focus:outline-none"
+      :class="
+        invalid
+          ? 'border-vdp-medium-red text-vdp-light-red'
+          : 'border-ink-700 hover:border-ink-500 focus:border-ink-300'
+      "
+      @focus="editing = true"
+      @input="
+        () => {
+          editing = true
+          invalid = false
+        }
+      "
+      @paste="onPaste"
+      @keydown.enter.prevent="commit"
+      @blur="commit"
+    />
+    <AppButton :label="copied ? 'Copied!' : 'Copy Bytes'" @click="copy">
+      <Check v-if="copied" class="size-4 text-vdp-medium-green" />
+      <Copy v-else class="size-4" />
+    </AppButton>
   </div>
 </template>

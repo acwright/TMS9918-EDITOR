@@ -416,13 +416,7 @@ const SHIP = [
 ]
 const SHIP_MAP: Record<string, number> = { L: 15, G: 14, c: 7, w: 5, v: 4, o: 8, f: 11 }
 
-const ENEMY = [
-  '...WWW...',
-  '..WmmmW..',
-  '.GGGGGGG.',
-  'GGcGcGcGG',
-  '.G.G.G.G.',
-]
+const ENEMY = ['...WWW...', '..WmmmW..', '.GGGGGGG.', 'GGcGcGcGG', '.G.G.G.G.']
 const ENEMY_MAP: Record<string, number> = { W: 15, m: 13, G: 12, c: 11 }
 
 function spaceSample(): Project {
@@ -501,7 +495,8 @@ function multicolorSample(): Project {
 
   for (let y = 0; y < grassTop; y++) {
     for (let x = 0; x < cols; x++) {
-      if (y < horizon(x)) set(x, y, y < 12 ? 4 : 5) // sky: dark blue → light blue
+      if (y < horizon(x))
+        set(x, y, y < 12 ? 4 : 5) // sky: dark blue → light blue
       else set(x, y, y < grassTop - 4 ? 2 : 12) // grass: medium green → dark green foreground
     }
   }

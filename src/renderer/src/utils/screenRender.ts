@@ -13,7 +13,11 @@ import type { Project, Screen } from '@/domain/types'
 const NEUTRAL = '#0a0a0a'
 
 /** Draw one screen into `ctx` at logical size (origin 0,0). */
-export function renderScreen(ctx: CanvasRenderingContext2D, project: Project, screen: Screen): void {
+export function renderScreen(
+  ctx: CanvasRenderingContext2D,
+  project: Project,
+  screen: Screen,
+): void {
   if (project.type === 'multicolor') {
     renderMulticolorScreen(ctx, project, screen)
     return

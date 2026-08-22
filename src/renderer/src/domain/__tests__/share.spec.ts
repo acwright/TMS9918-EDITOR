@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createProject } from '../factory'
 import { ProjectValidationError } from '../serialization'
-import {
-  ShareLinkError,
-  decodeShare,
-  encodeShare,
-  readShareHash,
-  shareUrl,
-} from '../share'
+import { ShareLinkError, decodeShare, encodeShare, readShareHash, shareUrl } from '../share'
 import { isGraphics2Colors } from '../types'
 import { PROJECT_TYPES } from '../modes'
 

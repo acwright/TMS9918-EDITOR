@@ -241,10 +241,7 @@ export function screenSegments(project: Project, screenIndices: number[]): ByteS
  * Generator (1536 bytes) synthesised from each selected screen's 64×48 grid,
  * followed by a single shared Name Table (768 bytes, fixed framebuffer layout).
  */
-export function multicolorScreenSegments(
-  project: Project,
-  screenIndices: number[],
-): ByteSegment[] {
+export function multicolorScreenSegments(project: Project, screenIndices: number[]): ByteSegment[] {
   const multi = screenIndices.length > 1
   const suffix = (index: number) => (multi ? `_${index + 1}` : '')
   const segments: ByteSegment[] = screenIndices.map((index) => ({

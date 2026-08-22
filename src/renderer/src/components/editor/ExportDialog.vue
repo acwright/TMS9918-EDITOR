@@ -17,16 +17,8 @@ import {
   type LabelCase,
 } from '@/domain/export'
 import { loadPreferences, savePreferences } from '@/persistence/preferences'
-import {
-  charsetSheetToCanvas,
-  screenToCanvas,
-  CHARSET_SHEET_COLS,
-} from '@/utils/screenRender'
-import {
-  SPRITE_SHEET_SIZE,
-  filmstripToCanvas,
-  spriteSheetToCanvas,
-} from '@/utils/spriteRender'
+import { charsetSheetToCanvas, screenToCanvas, CHARSET_SHEET_COLS } from '@/utils/screenRender'
+import { SPRITE_SHEET_SIZE, filmstripToCanvas, spriteSheetToCanvas } from '@/utils/spriteRender'
 import { downloadBytes, downloadCanvasPng, downloadText } from '@/utils/download'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
@@ -57,7 +49,9 @@ const PNG_SCALES = [1, 2, 4, 6, 8]
 
 const format = ref<FormatId>('ca65')
 const pngScale = ref(4)
-const isText = computed(() => format.value === 'ca65' || format.value === 'z80' || format.value === 'basic')
+const isText = computed(
+  () => format.value === 'ca65' || format.value === 'z80' || format.value === 'basic',
+)
 const isAsm = computed(() => format.value === 'ca65' || format.value === 'z80')
 
 // --- Assembly label case (remembered across sessions) ---
@@ -72,11 +66,15 @@ function setLabelCase(value: LabelCase) {
 const setChoice = ref<'all' | number>('all')
 const tables = reactive({ patterns: true, colors: true })
 const setCount = computed(() =>
-  projects.current ? charsetCount(projects.current.type, projects.current.settings.g2CharsetMode) : 1,
+  projects.current
+    ? charsetCount(projects.current.type, projects.current.settings.g2CharsetMode)
+    : 1,
 )
 const multiSet = computed(() => setCount.value > 1)
 const selectedSets = computed(() =>
-  setChoice.value === 'all' ? Array.from({ length: setCount.value }, (_, i) => i) : [setChoice.value],
+  setChoice.value === 'all'
+    ? Array.from({ length: setCount.value }, (_, i) => i)
+    : [setChoice.value],
 )
 /** Which set a charset PNG renders (a sheet is one set). */
 const pngSet = computed(() =>
@@ -146,7 +144,11 @@ const textOutput = computed(() => {
     return segmentsToAsm(segments.value, ASM_DIALECTS.z80, title.value, asm)
   }
   if (format.value === 'basic') {
-    return segmentsToBasic(segments.value, { startLine: startLine.value, step: step.value }, title.value)
+    return segmentsToBasic(
+      segments.value,
+      { startLine: startLine.value, step: step.value },
+      title.value,
+    )
   }
   return ''
 })
@@ -235,9 +237,7 @@ function pngCanvas(project: Project): HTMLCanvasElement | null {
       ? spriteSheetToCanvas(project, pngScale.value)
       : filmstripToCanvas(project, filmstripFrames.value, FILMSTRIP_STAGE, pngScale.value)
   }
-  return editor.currentScreen
-    ? screenToCanvas(project, editor.currentScreen, pngScale.value)
-    : null
+  return editor.currentScreen ? screenToCanvas(project, editor.currentScreen, pngScale.value) : null
 }
 
 function download() {
@@ -249,7 +249,11 @@ function download() {
     const canvas = pngCanvas(project)
     if (canvas) downloadCanvasPng(filename.value, canvas)
   } else {
-    downloadText(filename.value, textOutput.value, format.value === 'basic' ? 'text/plain' : 'text/x-asm')
+    downloadText(
+      filename.value,
+      textOutput.value,
+      format.value === 'basic' ? 'text/plain' : 'text/x-asm',
+    )
   }
 }
 
@@ -287,9 +291,15 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
       <!-- Charset options -->
       <template v-if="scope === 'charset'">
         <fieldset v-if="multiSet" class="flex flex-col gap-1.5">
-          <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">Character Set</legend>
+          <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">
+            Character Set
+          </legend>
           <div class="flex flex-wrap gap-1.5">
-            <button type="button" :class="[segButton, setChoice === 'all' ? segActive : segIdle]" @click="setChoice = 'all'">
+            <button
+              type="button"
+              :class="[segButton, setChoice === 'all' ? segActive : segIdle]"
+              @click="setChoice = 'all'"
+            >
               All
             </button>
             <button
@@ -307,10 +317,18 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
         <fieldset v-if="format !== 'png'" class="flex flex-col gap-1.5">
           <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">Tables</legend>
           <div class="flex flex-wrap gap-1.5">
-            <button type="button" :class="[segButton, tables.patterns ? segActive : segIdle]" @click="tables.patterns = !tables.patterns">
+            <button
+              type="button"
+              :class="[segButton, tables.patterns ? segActive : segIdle]"
+              @click="tables.patterns = !tables.patterns"
+            >
               Patterns
             </button>
-            <button type="button" :class="[segButton, tables.colors ? segActive : segIdle]" @click="tables.colors = !tables.colors">
+            <button
+              type="button"
+              :class="[segButton, tables.colors ? segActive : segIdle]"
+              @click="tables.colors = !tables.colors"
+            >
               Colours
             </button>
           </div>
@@ -389,8 +407,9 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
             </button>
           </div>
           <p v-if="spritePng === 'filmstrip'" class="text-xs text-ink-500">
-            {{ editor.currentAnimation?.name }} —
-            {{ filmstripFrames.length }} frame{{ filmstripFrames.length === 1 ? '' : 's' }}
+            {{ editor.currentAnimation?.name }} — {{ filmstripFrames.length }} frame{{
+              filmstripFrames.length === 1 ? '' : 's'
+            }}
           </p>
         </fieldset>
       </template>
@@ -399,10 +418,18 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
       <fieldset v-else-if="format !== 'png'" class="flex flex-col gap-1.5">
         <legend class="font-display mb-1 text-sm tracking-wider text-ink-400">Screens</legend>
         <div class="flex flex-wrap gap-1.5">
-          <button type="button" :class="[segButton, screenChoice === 'current' ? segActive : segIdle]" @click="screenChoice = 'current'">
+          <button
+            type="button"
+            :class="[segButton, screenChoice === 'current' ? segActive : segIdle]"
+            @click="screenChoice = 'current'"
+          >
             Current
           </button>
-          <button type="button" :class="[segButton, screenChoice === 'all' ? segActive : segIdle]" @click="screenChoice = 'all'">
+          <button
+            type="button"
+            :class="[segButton, screenChoice === 'all' ? segActive : segIdle]"
+            @click="screenChoice = 'all'"
+          >
             All
           </button>
         </div>
@@ -455,7 +482,11 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
             :key="c.id"
             type="button"
             :title="c.example"
-            :class="[segButton, 'font-mono tracking-normal', labelCase === c.id ? segActive : segIdle]"
+            :class="[
+              segButton,
+              'font-mono tracking-normal',
+              labelCase === c.id ? segActive : segIdle,
+            ]"
             @click="setLabelCase(c.id)"
           >
             {{ c.label }}
@@ -478,8 +509,12 @@ const segIdle = 'border-ink-700 bg-ink-850 text-ink-300 hover:border-ink-500 hov
           class="flex h-20 items-center justify-center rounded-sm border border-ink-800 bg-ink-950 text-center font-mono text-xs text-ink-400"
         >
           <span v-if="!hasData">Nothing selected to export.</span>
-          <span v-else-if="format === 'binary'">{{ byteCount }} bytes → <span class="text-ink-200">{{ filename }}</span></span>
-          <span v-else>{{ pngDimensions }} PNG → <span class="text-ink-200">{{ filename }}</span></span>
+          <span v-else-if="format === 'binary'"
+            >{{ byteCount }} bytes → <span class="text-ink-200">{{ filename }}</span></span
+          >
+          <span v-else
+            >{{ pngDimensions }} PNG → <span class="text-ink-200">{{ filename }}</span></span
+          >
         </p>
       </div>
     </div>

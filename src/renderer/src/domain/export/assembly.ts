@@ -46,7 +46,10 @@ export function segmentsToAsm(
     lines.push(`; ${seg.description} — ${seg.bytes.length} bytes`)
     lines.push(`${applyLabelCase(seg.label, options.labelCase)}:`)
     for (let i = 0; i < seg.bytes.length; i += seg.perLine) {
-      const row = seg.bytes.slice(i, i + seg.perLine).map(hex).join(', ')
+      const row = seg.bytes
+        .slice(i, i + seg.perLine)
+        .map(hex)
+        .join(', ')
       lines.push(`${INDENT}${dialect.directive} ${row}`)
     }
     lines.push('')
