@@ -235,7 +235,7 @@ watch(
         class="min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-4 lg:flex lg:flex-none lg:shrink-0 lg:border-r lg:border-ink-800"
         :class="activeTab === 'character' ? 'flex' : 'hidden'"
       >
-        <SpritePanel class="mx-auto shrink-0 lg:mx-0" />
+        <SpritePanel class="shrink-0" />
         <hr class="shrink-0 border-ink-800" />
         <SpritePicker @open-settings="showSettings = true" />
       </aside>
@@ -278,7 +278,7 @@ watch(
         class="min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto p-4 lg:flex lg:flex-none lg:shrink-0 lg:border-r lg:border-ink-800 lg:p-4"
         :class="activeTab === 'character' ? 'flex' : 'hidden'"
       >
-        <CharacterPanel class="mx-auto shrink-0 lg:mx-0" />
+        <CharacterPanel class="shrink-0" />
         <hr class="shrink-0 border-ink-800" />
         <CharsetPicker @open-settings="showSettings = true" />
       </aside>

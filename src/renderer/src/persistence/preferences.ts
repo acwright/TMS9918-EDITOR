@@ -6,8 +6,18 @@
  */
 
 import { DEFAULT_LABEL_CASE, isLabelCase, type LabelCase } from '@/domain/export/labels'
-import { DEFAULT_CHARSET_VIEW, isCharsetView, type CharsetView } from '@/utils/charsetView'
-import { DEFAULT_SPRITE_VIEW, isSpriteView, type SpriteView } from '@/utils/spriteView'
+import {
+  DEFAULT_CHARSET_VIEW,
+  defaultCharsetView,
+  isCharsetView,
+  type CharsetView,
+} from '@/utils/charsetView'
+import {
+  DEFAULT_SPRITE_VIEW,
+  defaultSpriteView,
+  isSpriteView,
+  type SpriteView,
+} from '@/utils/spriteView'
 import type { KVStorage } from './repository'
 
 export const PREFERENCES_KEY = 'tms9918-editor:prefs'
@@ -37,29 +47,42 @@ function safeStorage(storage?: KVStorage): KVStorage | null {
 }
 
 /** Read stored preferences, filling in defaults for anything missing or invalid. */
+/**
+ * The defaults as they apply right now. Only the two picker layouts vary: which
+ * one a first visit wants depends on the viewport it lands in.
+ */
+function defaults(): Preferences {
+  return {
+    ...DEFAULT_PREFERENCES,
+    charsetView: defaultCharsetView(),
+    spriteView: defaultSpriteView(),
+  }
+}
+
 export function loadPreferences(storage?: KVStorage): Preferences {
+  const base = defaults()
   const kv = safeStorage(storage)
   let raw: string | null = null
   try {
     raw = kv?.getItem(PREFERENCES_KEY) ?? null
   } catch {
-    return { ...DEFAULT_PREFERENCES }
+    return base
   }
-  if (!raw) return { ...DEFAULT_PREFERENCES }
+  if (!raw) return base
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
   } catch {
-    return { ...DEFAULT_PREFERENCES }
+    return base
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    return { ...DEFAULT_PREFERENCES }
+    return base
   }
   const p = parsed as Record<string, unknown>
   return {
-    labelCase: isLabelCase(p.labelCase) ? p.labelCase : DEFAULT_PREFERENCES.labelCase,
-    charsetView: isCharsetView(p.charsetView) ? p.charsetView : DEFAULT_PREFERENCES.charsetView,
-    spriteView: isSpriteView(p.spriteView) ? p.spriteView : DEFAULT_PREFERENCES.spriteView,
+    labelCase: isLabelCase(p.labelCase) ? p.labelCase : base.labelCase,
+    charsetView: isCharsetView(p.charsetView) ? p.charsetView : base.charsetView,
+    spriteView: isSpriteView(p.spriteView) ? p.spriteView : base.spriteView,
   }
 }
 

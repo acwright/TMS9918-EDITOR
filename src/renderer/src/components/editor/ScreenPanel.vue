@@ -12,6 +12,7 @@ import {
   FlipHorizontal2,
   FlipVertical2,
   Grid3x3,
+  MoreHorizontal,
   PaintBucket,
   Pencil,
   Plus,
@@ -50,12 +51,37 @@ function fillScreen() {
 // this component owns only the auto-fit measurement.
 const viewport = useTemplateRef('viewport')
 
+/**
+ * Below sm the secondary tools fold behind More. `display: contents` rather than
+ * a nested flex row so they stay items of the same wrapping toolbar — a wrapper
+ * box would put them on a line of their own.
+ */
+const showMore = ref(false)
+const secondaryClass = computed(() => (showMore.value ? 'contents' : 'hidden sm:contents'))
+
+/** Hand the scale back to auto-fit, and re-fit now rather than on next resize. */
+function refit(): void {
+  editor.refitScreen()
+  fit()
+}
+
+/** A fitted scale is rarely whole — show one decimal when it isn't. */
+const scaleLabel = computed(() => {
+  const scale = editor.screenScale
+  return Number.isInteger(scale) ? String(scale) : scale.toFixed(1)
+})
+
 /** Fit the largest whole scale (1–8) where the screen fills the viewport. */
 function fit(): void {
   const el = viewport.value
   const mode = MODES[projects.current?.type ?? 'graphics1']
   if (!el || el.clientWidth === 0) return // skip while hidden (e.g. Character tab)
-  const padding = 16 // p-2 on both sides of the centering wrapper
+  // p-3 on both sides of the centering wrapper, plus the canvas's own 1px border
+  // on each side. Leaving the border out fits the canvas exactly and then
+  // overflows by 2px: that is a scrollbar, and a scrollbar changes clientWidth,
+  // which re-fits, which removes it — the observer oscillates and Chromium
+  // reports "ResizeObserver loop completed with undelivered notifications".
+  const padding = 26
   editor.fitScreenScale(
     Math.min(
       (el.clientWidth - padding) / (mode.columns * mode.cellWidth),
@@ -121,155 +147,187 @@ const statusText = computed(() => (status.value ? formatScreenStatus(status.valu
 <template>
   <section class="flex min-h-0 min-w-0 flex-1 flex-col gap-3" aria-label="Screen editor">
     <!-- Toolbar — ordered per PLAN.md §6/Phase 7 -->
-    <div class="flex flex-wrap items-center justify-center gap-1">
-      <AppButton label="Export Screen" @click="showExport = true">
-        <Download class="size-4" />
-      </AppButton>
+    <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 sm:gap-x-1">
+      <div :class="secondaryClass">
+        <AppButton label="Export Screen" @click="showExport = true">
+          <Download class="size-4" />
+        </AppButton>
 
-      <div class="mx-1.5 h-6 w-px bg-ink-800" />
+        <div class="mx-1 hidden h-6 w-px bg-ink-800 sm:block" />
+      </div>
 
-      <AppButton
-        label="Zoom Out"
-        shortcut="−"
-        :disabled="editor.screenScale <= 1"
-        @click="editor.zoomScreen(-1)"
-      >
-        <ZoomOut class="size-4" />
-      </AppButton>
-      <span class="w-6 text-center font-mono text-xs text-ink-400">{{ editor.screenScale }}×</span>
-      <AppButton
-        label="Zoom In"
-        shortcut="+"
-        :disabled="editor.screenScale >= 8"
-        @click="editor.zoomScreen(1)"
-      >
-        <ZoomIn class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Grid Overlay"
-        shortcut="G"
-        :active="editor.showGrid"
-        @click="editor.toggleGrid()"
-      >
-        <Grid3x3 class="size-4" />
-      </AppButton>
+      <div class="flex items-center gap-1">
+        <AppButton
+          label="Zoom Out"
+          shortcut="−"
+          :disabled="editor.screenScale <= 1"
+          @click="editor.zoomScreen(-1)"
+        >
+          <ZoomOut class="size-4" />
+        </AppButton>
+        <!-- The scale readout is also the fit control, rather than a sixth button
+             in a toolbar that already wraps onto three rows on a phone. It carries
+             the full button chrome because as bare text nothing said it was one;
+             the width that costs is paid for by the dividers' tighter margins. -->
+        <AppButton label="Fit to Window" @click="refit">
+          <span class="font-mono text-xs">{{ scaleLabel }}×</span>
+        </AppButton>
+        <AppButton
+          label="Zoom In"
+          shortcut="+"
+          :disabled="editor.screenScale >= 8"
+          @click="editor.zoomScreen(1)"
+        >
+          <ZoomIn class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Grid Overlay"
+          shortcut="G"
+          :active="editor.showGrid"
+          @click="editor.toggleGrid()"
+        >
+          <Grid3x3 class="size-4" />
+        </AppButton>
+      </div>
 
-      <div class="mx-1.5 h-6 w-px bg-ink-800" />
+      <div :class="secondaryClass">
+        <div class="mx-1 hidden h-6 w-px bg-ink-800 sm:block" />
 
-      <AppButton
-        label="Rotate Left"
-        @click="editor.screenTransform('Rotate Screen Left', screenOps.rotateLeft)"
-      >
-        <RotateCcw class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Rotate Right"
-        @click="editor.screenTransform('Rotate Screen Right', screenOps.rotateRight)"
-      >
-        <RotateCw class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Flip Horizontal"
-        @click="editor.screenTransform('Flip Screen Horizontal', screenOps.flipH)"
-      >
-        <FlipHorizontal2 class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Flip Vertical"
-        @click="editor.screenTransform('Flip Screen Vertical', screenOps.flipV)"
-      >
-        <FlipVertical2 class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Shift Left"
-        @click="editor.screenTransform('Shift Screen Left', screenOps.shiftLeft)"
-      >
-        <ArrowLeft class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Shift Right"
-        @click="editor.screenTransform('Shift Screen Right', screenOps.shiftRight)"
-      >
-        <ArrowRight class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Shift Up"
-        @click="editor.screenTransform('Shift Screen Up', screenOps.shiftUp)"
-      >
-        <ArrowUp class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Shift Down"
-        @click="editor.screenTransform('Shift Screen Down', screenOps.shiftDown)"
-      >
-        <ArrowDown class="size-4" />
-      </AppButton>
+        <AppButton
+          label="Rotate Left"
+          @click="editor.screenTransform('Rotate Screen Left', screenOps.rotateLeft)"
+        >
+          <RotateCcw class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Rotate Right"
+          @click="editor.screenTransform('Rotate Screen Right', screenOps.rotateRight)"
+        >
+          <RotateCw class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Flip Horizontal"
+          @click="editor.screenTransform('Flip Screen Horizontal', screenOps.flipH)"
+        >
+          <FlipHorizontal2 class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Flip Vertical"
+          @click="editor.screenTransform('Flip Screen Vertical', screenOps.flipV)"
+        >
+          <FlipVertical2 class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Shift Left"
+          @click="editor.screenTransform('Shift Screen Left', screenOps.shiftLeft)"
+        >
+          <ArrowLeft class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Shift Right"
+          @click="editor.screenTransform('Shift Screen Right', screenOps.shiftRight)"
+        >
+          <ArrowRight class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Shift Up"
+          @click="editor.screenTransform('Shift Screen Up', screenOps.shiftUp)"
+        >
+          <ArrowUp class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Shift Down"
+          @click="editor.screenTransform('Shift Screen Down', screenOps.shiftDown)"
+        >
+          <ArrowDown class="size-4" />
+        </AppButton>
 
-      <div class="mx-1.5 h-6 w-px bg-ink-800" />
+        <div class="mx-1 hidden h-6 w-px bg-ink-800 sm:block" />
 
-      <AppButton
-        label="Clear Screen"
-        @click="editor.screenTransform('Clear Screen', (cells) => screenOps.clear(cells))"
-      >
-        <Eraser class="size-4" />
-      </AppButton>
-      <AppButton
-        :label="isMulticolor ? 'Fill Screen with Paint Colour' : 'Fill Screen with Selected Character'"
-        @click="fillScreen"
-      >
-        <PaintBucket class="size-4" />
-      </AppButton>
+        <AppButton
+          label="Clear Screen"
+          @click="editor.screenTransform('Clear Screen', (cells) => screenOps.clear(cells))"
+        >
+          <Eraser class="size-4" />
+        </AppButton>
+        <AppButton
+          :label="
+            isMulticolor ? 'Fill Screen with Paint Colour' : 'Fill Screen with Selected Character'
+          "
+          @click="fillScreen"
+        >
+          <PaintBucket class="size-4" />
+        </AppButton>
+      </div>
 
-      <div class="mx-1.5 h-6 w-px bg-ink-800" />
+      <div class="mx-1 hidden h-6 w-px bg-ink-800 sm:block" />
 
-      <AppButton
-        label="Undo"
-        :shortcut="modLabel('Z')"
-        :disabled="!editor.canUndo"
-        @click="editor.undo()"
-      >
-        <Undo2 class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Redo"
-        :shortcut="shiftModLabel('Z')"
-        :disabled="!editor.canRedo"
-        @click="editor.redo()"
-      >
-        <Redo2 class="size-4" />
-      </AppButton>
+      <div class="flex items-center gap-1">
+        <AppButton
+          label="Undo"
+          :shortcut="modLabel('Z')"
+          :disabled="!editor.canUndo"
+          @click="editor.undo()"
+        >
+          <Undo2 class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Redo"
+          :shortcut="shiftModLabel('Z')"
+          :disabled="!editor.canRedo"
+          @click="editor.redo()"
+        >
+          <Redo2 class="size-4" />
+        </AppButton>
+      </div>
 
-      <div class="mx-1.5 h-6 w-px bg-ink-800" />
+      <div class="mx-1 hidden h-6 w-px bg-ink-800 sm:block" />
 
+      <div class="flex items-center gap-1">
+        <AppButton
+          label="Previous Screen"
+          shortcut=","
+          :disabled="editor.selectedScreen === 0"
+          @click="editor.selectScreen(editor.selectedScreen - 1)"
+        >
+          <ChevronLeft class="size-4" />
+        </AppButton>
+        <span class="w-8 text-center font-mono text-xs text-ink-400">{{ pageLabel }}</span>
+        <AppButton
+          label="Next Screen"
+          shortcut="."
+          :disabled="editor.selectedScreen >= editor.screenCount - 1"
+          @click="editor.selectScreen(editor.selectedScreen + 1)"
+        >
+          <ChevronRight class="size-4" />
+        </AppButton>
+      </div>
+      <div :class="secondaryClass">
+        <AppButton label="Rename Screen" @click="startRename">
+          <Pencil class="size-4" />
+        </AppButton>
+        <AppButton label="Add Screen" @click="editor.addScreen()">
+          <Plus class="size-4" />
+        </AppButton>
+        <AppButton
+          label="Delete Screen"
+          :disabled="editor.screenCount <= 1"
+          @click="showDelete = true"
+        >
+          <Trash2 class="size-4" />
+        </AppButton>
+      </div>
+      <!-- Below sm the toolbar ran to three and four rows. What stays out is
+           what you reach for while drawing — zoom, fit, grid, undo, the screen
+           stepper; what folds away is what you reach for once. From sm up it is
+           all inline as before, so this costs the desktop nothing. -->
       <AppButton
-        label="Previous Screen"
-        shortcut=","
-        :disabled="editor.selectedScreen === 0"
-        @click="editor.selectScreen(editor.selectedScreen - 1)"
+        label="More Tools"
+        class="sm:hidden"
+        :active="showMore"
+        @click="showMore = !showMore"
       >
-        <ChevronLeft class="size-4" />
-      </AppButton>
-      <span class="w-8 text-center font-mono text-xs text-ink-400">{{ pageLabel }}</span>
-      <AppButton
-        label="Next Screen"
-        shortcut="."
-        :disabled="editor.selectedScreen >= editor.screenCount - 1"
-        @click="editor.selectScreen(editor.selectedScreen + 1)"
-      >
-        <ChevronRight class="size-4" />
-      </AppButton>
-      <AppButton label="Rename Screen" @click="startRename">
-        <Pencil class="size-4" />
-      </AppButton>
-      <AppButton label="Add Screen" @click="editor.addScreen()">
-        <Plus class="size-4" />
-      </AppButton>
-      <AppButton
-        label="Delete Screen"
-        :disabled="editor.screenCount <= 1"
-        @click="showDelete = true"
-      >
-        <Trash2 class="size-4" />
+        <MoreHorizontal class="size-4" />
       </AppButton>
     </div>
 
@@ -280,7 +338,7 @@ const statusText = computed(() => (status.value ? formatScreenStatus(status.valu
       <!-- "safe" centering falls back to start alignment when the canvas
            overflows, so the left/top edges stay scrollable (plain center
            pushes overflow off the unreachable start side) -->
-      <div class="flex min-h-full min-w-full items-center-safe justify-center-safe p-2">
+      <div class="flex min-h-full min-w-full items-center-safe justify-center-safe p-3">
         <ScreenCanvas
           :scale="editor.screenScale"
           :show-grid="editor.showGrid"

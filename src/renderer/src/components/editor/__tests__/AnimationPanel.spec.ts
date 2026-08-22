@@ -159,7 +159,10 @@ describe('AnimationPanel', () => {
     editor.zoomPreview(-99)
     expect(editor.previewScale).toBe(1) // clamped
     editor.zoomPreview(99)
-    expect(editor.previewScale).toBe(12)
+    // 32, not 12: the preview stage is 32 logical pixels square, so 12× tops out
+    // at 384px — short of filling a tablet or a desktop column.
+    expect(editor.previewScale).toBe(editor.MAX_PREVIEW_SCALE)
+    expect(editor.MAX_PREVIEW_SCALE).toBe(32)
   })
 
   it('drives the frame rate from the toolbar', async () => {

@@ -123,14 +123,39 @@ export const useEditorStore = defineStore('editor', () => {
   /** True once the user zooms manually; auto-fit pauses until the next project. */
   const screenZoomedManually = ref(false)
 
+  /**
+   * Back to the scale the viewport can show, and to re-fitting on every resize.
+   * Manual zoom is otherwise a one-way door: nothing but opening another project
+   * cleared the flag, so a fitted 1.4× was unreachable once you pressed ±.
+   */
+  function refitScreen(): void {
+    screenZoomedManually.value = false
+  }
+
+  // Stepping from a fitted scale snaps to whole numbers first: from a 1.47 fit,
+  // zoom in means 2×, not 2.47×.
   function zoomScreen(delta: number): void {
     screenZoomedManually.value = true
-    screenScale.value = Math.max(1, Math.min(8, screenScale.value + delta))
+    const from = delta > 0 ? Math.floor(screenScale.value) : Math.ceil(screenScale.value)
+    screenScale.value = Math.max(1, Math.min(8, from + delta))
   }
 
   /** Auto-fit path — sets the scale without marking it manual. */
+  /**
+   * Auto-fit path. Deliberately *not* whole-numbered: flooring left a 1.47 fit
+   * showing at 1×, which on a phone is the screen in two thirds of the width it
+   * had and a third of the height. The canvas is one logical pixel per screen
+   * pixel scaled by CSS with `image-rendering: pixelated`, and painting, the
+   * grid and the cursor all work off ratios of the element's box, so a
+   * fractional scale costs nothing but evenness in the upscale.
+   *
+   * Rounded *down*: rounding to the nearest hundredth can round up, which makes
+   * the canvas a fraction of a pixel wider than the space measured for it. In a
+   * scrolling viewport that fraction is a scrollbar, the scrollbar changes the
+   * measurement, and the next fit undoes it — the ResizeObserver oscillates.
+   */
   function fitScreenScale(value: number): void {
-    screenScale.value = Math.max(1, Math.min(8, Math.floor(value)))
+    screenScale.value = Math.max(1, Math.min(8, Math.floor(value * 100) / 100))
   }
 
   function toggleGrid(): void {
@@ -148,6 +173,7 @@ export const useEditorStore = defineStore('editor', () => {
     selectedFrame.value = 0
     playing.value = false
     previewScale.value = 6
+    previewZoomedManually.value = false
     screenZoomedManually.value = false
     history.clear()
   }
@@ -330,9 +356,34 @@ export const useEditorStore = defineStore('editor', () => {
    * scale moved into the store in Phase 8.
    */
   const previewScale = ref(6)
+  const previewZoomedManually = ref(false)
 
+  /**
+   * The ceiling is 32, not 12: the preview stage is 32 logical pixels square, so
+   * 12× is 384px — short of filling a tablet or a desktop column, which is where
+   * the fit lands now that it is measured rather than stepped.
+   */
+  const MAX_PREVIEW_SCALE = 32
+
+  // Whole steps from a fitted fraction, as the screen's zoom does.
   function zoomPreview(delta: number): void {
-    previewScale.value = Math.max(1, Math.min(12, previewScale.value + delta))
+    previewZoomedManually.value = true
+    const from = delta > 0 ? Math.floor(previewScale.value) : Math.ceil(previewScale.value)
+    previewScale.value = Math.max(1, Math.min(MAX_PREVIEW_SCALE, from + delta))
+  }
+
+  /**
+   * Auto-fit path — keeps the fraction, and does not mark the zoom manual.
+   * Rounded down for the same reason as the screen's: a fraction of a pixel over
+   * is a scrollbar, and a scrollbar changes the measurement it came from.
+   */
+  function fitPreviewScale(value: number): void {
+    previewScale.value = Math.max(1, Math.min(MAX_PREVIEW_SCALE, Math.floor(value * 100) / 100))
+  }
+
+  /** Back to the scale the panel can show, and to re-fitting on every resize. */
+  function refitPreview(): void {
+    previewZoomedManually.value = false
   }
 
   const animations = computed<SpriteAnimation[]>(() => projects.current?.animations ?? [])
@@ -798,7 +849,11 @@ export const useEditorStore = defineStore('editor', () => {
         : isMulticolor
           ? 'Paint Block'
           : 'Place Character'
-    executeCellsChange(label, selectedScreen.value, screenOps.setCell(screen.cells, columns, x, y, code))
+    executeCellsChange(
+      label,
+      selectedScreen.value,
+      screenOps.setCell(screen.cells, columns, x, y, code),
+    )
   }
 
   function addScreen(): void {
@@ -885,7 +940,11 @@ export const useEditorStore = defineStore('editor', () => {
     selectedFrame,
     playing,
     previewScale,
+    previewZoomedManually,
+    MAX_PREVIEW_SCALE,
     zoomPreview,
+    fitPreviewScale,
+    refitPreview,
     animations,
     animationCount,
     currentAnimation,
@@ -902,6 +961,7 @@ export const useEditorStore = defineStore('editor', () => {
     activeColors,
     zoomScreen,
     fitScreenScale,
+    refitScreen,
     toggleGrid,
     canUndo,
     canRedo,

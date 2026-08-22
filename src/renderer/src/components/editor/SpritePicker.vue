@@ -47,13 +47,15 @@ const VIEW_ICONS = { sheet: LayoutGrid, grid: Grid3x3, list: List }
       <span class="font-mono text-xs text-ink-500">
         {{ editor.spriteSize }}×{{ editor.spriteSize }} · {{ editor.spriteSlots }}
       </span>
-      <div class="ml-auto flex items-center gap-1">
+      <!-- Wraps rather than overflowing: eight buttons at a coarse pointer's
+           40px are wider than a 320px phone's column -->
+      <div class="ml-auto flex flex-wrap items-center justify-end gap-1">
         <!-- Layout: which of the three arrangements suits this window -->
         <div class="flex gap-1" role="radiogroup" aria-label="Sprite layout">
           <AppTooltip
             v-for="option in SPRITE_VIEWS"
             :key="option.view"
-            :label="option.hint"
+            :label="option.label"
             placement="bottom"
           >
             <button
@@ -66,7 +68,7 @@ const VIEW_ICONS = { sheet: LayoutGrid, grid: Grid3x3, list: List }
               "
               role="radio"
               :aria-checked="view === option.view"
-              :aria-label="option.hint"
+              :aria-label="option.label"
               @click="setView(option.view)"
             >
               <component :is="VIEW_ICONS[option.view]" class="size-4" />

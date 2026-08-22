@@ -33,7 +33,9 @@ function retarget() {
       <span class="font-mono text-xs text-ink-500">
         {{ frames.length ? `${editor.selectedFrame + 1}/${frames.length}` : '0' }}
       </span>
-      <div class="ml-auto flex items-center gap-1">
+      <!-- Wraps rather than overflowing: eight buttons at a coarse pointer's
+           40px are wider than a 320px phone's column -->
+      <div class="ml-auto flex flex-wrap items-center justify-end gap-1">
         <AppButton
           label="Move Frame Left"
           :disabled="editor.selectedFrame <= 0"

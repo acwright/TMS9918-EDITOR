@@ -74,16 +74,18 @@ function chipHalfStyle(index: number): { backgroundColor: string } {
 <template>
   <section
     v-if="editor.currentPattern"
-    class="flex w-fit flex-col gap-3"
+    class="flex w-full flex-col gap-3 lg:w-fit"
     aria-label="Character editor"
   >
     <!-- Whole-character actions sit in the header beside the stepper rather than
          in a row of their own further down: they act on the character, not on
          the pixel under the pointer, and the column below is worth more to the
          character set. -->
-    <div class="flex items-center justify-between gap-2">
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="text-xl">Character</h2>
-      <div class="flex items-center gap-1.5">
+      <!-- ml-auto keeps the controls right-aligned on the line of their own they
+           take on a phone, where they and the heading don't fit side by side -->
+      <div class="ml-auto flex flex-wrap items-center justify-end gap-1.5">
         <div class="flex gap-1">
           <AppButton
             label="Fill"
@@ -126,122 +128,134 @@ function chipHalfStyle(index: number): { backgroundColor: string } {
       </div>
     </div>
 
-    <!-- Directional transforms frame the grid: shifts on each side,
-         rotates flanking shift-up, flips flanking shift-down -->
-    <div class="grid w-fit grid-cols-[auto_auto_auto] items-center gap-2">
-      <AppButton
-        label="Rotate Left"
-        :shortcut="shiftLabel('R')"
-        @click="editor.transform('Rotate Left', charOps.rotateLeft)"
-      >
-        <RotateCcw class="size-4" />
-      </AppButton>
-      <div class="flex justify-center">
+    <!-- The editor stack keeps its own width and centres in the column, while
+         the heading row above spans it: that is the shape of the picker below,
+         whose title sits at the column's left edge and whose grid is centred. -->
+    <div class="mx-auto flex w-fit flex-col gap-3">
+      <!-- Directional transforms frame the grid: shifts on each side,
+           rotates flanking shift-up, flips flanking shift-down -->
+      <div class="grid w-fit grid-cols-[auto_auto_auto] items-center gap-2">
         <AppButton
-          label="Shift Up"
-          :shortcut="altLabel('↑')"
-          @click="editor.transform('Shift Up', charOps.shiftUp)"
+          label="Rotate Left"
+          :shortcut="shiftLabel('R')"
+          @click="editor.transform('Rotate Left', charOps.rotateLeft)"
         >
-          <ArrowUp class="size-4" />
+          <RotateCcw class="size-4" />
         </AppButton>
-      </div>
-      <div class="flex justify-end">
-        <AppButton
-          label="Rotate Right"
-          shortcut="R"
-          @click="editor.transform('Rotate Right', charOps.rotateRight)"
-        >
-          <RotateCw class="size-4" />
-        </AppButton>
-      </div>
-
-      <AppButton
-        label="Shift Left"
-        :shortcut="altLabel('←')"
-        @click="editor.transform('Shift Left', charOps.shiftLeft)"
-      >
-        <ArrowLeft class="size-4" />
-      </AppButton>
-      <div class="flex items-stretch gap-1.5">
-        <div class="size-80">
-          <PixelEditor
-            :pixels="pixels"
-            :colors="cellColors"
-            :dim-from="dimFrom"
-            :highlight-row="isG2 ? editor.selectedRow : null"
-            @stroke-start="editor.beginStroke('Draw')"
-            @paint="(x, y, on) => editor.paintPixel(x, y, on)"
-            @stroke-end="editor.endStroke()"
-          />
-        </div>
-        <!-- GMII row chips: each shows its row's fg/bg; click targets the row -->
-        <div
-          v-if="isG2"
-          class="flex w-4 flex-col gap-px py-px"
-          role="radiogroup"
-          aria-label="Color row targeting"
-        >
-          <AppTooltip
-            v-for="(pair, y) in rowColors"
-            :key="y"
-            :label="`Colors for Row ${y}`"
-            class="min-h-0 flex-1"
+        <div class="flex justify-center">
+          <AppButton
+            label="Shift Up"
+            :shortcut="altLabel('↑')"
+            @click="editor.transform('Shift Up', charOps.shiftUp)"
           >
-            <button
-              type="button"
-              class="flex h-full w-4 cursor-pointer flex-col overflow-hidden rounded-xs border"
-              :class="
-                editor.selectedRow === y ? 'border-ink-200' : 'border-ink-700 hover:border-ink-500'
-              "
-              role="radio"
-              :aria-checked="editor.selectedRow === y"
-              @click="editor.selectRow(y)"
+            <ArrowUp class="size-4" />
+          </AppButton>
+        </div>
+        <div class="flex justify-end">
+          <AppButton
+            label="Rotate Right"
+            shortcut="R"
+            @click="editor.transform('Rotate Right', charOps.rotateRight)"
+          >
+            <RotateCw class="size-4" />
+          </AppButton>
+        </div>
+
+        <AppButton
+          label="Shift Left"
+          :shortcut="altLabel('←')"
+          @click="editor.transform('Shift Left', charOps.shiftLeft)"
+        >
+          <ArrowLeft class="size-4" />
+        </AppButton>
+        <div class="flex min-w-0 items-stretch gap-1.5">
+          <!-- 320px is what it asks for and gets wherever that fits. min-w-0 is
+               the load-bearing half: without it the box's min-content pinned the
+               row at 408px, w-fit above could not clamp to a phone's 370, and the
+               shift and flip buttons went under the edge of the screen with the
+               column's overflow-x-hidden leaving no way to scroll to them. -->
+          <div class="aspect-square w-80 max-w-full min-w-0">
+            <PixelEditor
+              :pixels="pixels"
+              :colors="cellColors"
+              :dim-from="dimFrom"
+              :highlight-row="isG2 ? editor.selectedRow : null"
+              @stroke-start="editor.beginStroke('Draw')"
+              @paint="(x, y, on) => editor.paintPixel(x, y, on)"
+              @stroke-end="editor.endStroke()"
+            />
+          </div>
+          <!-- GMII row chips: each shows its row's fg/bg; click targets the row -->
+          <div
+            v-if="isG2"
+            class="flex w-4 shrink-0 flex-col gap-px py-px"
+            role="radiogroup"
+            aria-label="Color row targeting"
+          >
+            <AppTooltip
+              v-for="(pair, y) in rowColors"
+              :key="y"
+              :label="`Colors for Row ${y}`"
+              class="min-h-0 flex-1"
             >
-              <span class="flex-1" :style="chipHalfStyle(pair.fg)" />
-              <span class="flex-1" :style="chipHalfStyle(pair.bg)" />
-            </button>
-          </AppTooltip>
+              <button
+                type="button"
+                class="flex h-full w-4 cursor-pointer flex-col overflow-hidden rounded-xs border"
+                :class="
+                  editor.selectedRow === y
+                    ? 'border-ink-200'
+                    : 'border-ink-700 hover:border-ink-500'
+                "
+                role="radio"
+                :aria-checked="editor.selectedRow === y"
+                @click="editor.selectRow(y)"
+              >
+                <span class="flex-1" :style="chipHalfStyle(pair.fg)" />
+                <span class="flex-1" :style="chipHalfStyle(pair.bg)" />
+              </button>
+            </AppTooltip>
+          </div>
+        </div>
+        <div class="flex justify-end">
+          <AppButton
+            label="Shift Right"
+            :shortcut="altLabel('→')"
+            @click="editor.transform('Shift Right', charOps.shiftRight)"
+          >
+            <ArrowRight class="size-4" />
+          </AppButton>
+        </div>
+
+        <AppButton
+          label="Flip Horizontal"
+          shortcut="H"
+          @click="editor.transform('Flip Horizontal', charOps.flipH)"
+        >
+          <FlipHorizontal2 class="size-4" />
+        </AppButton>
+        <div class="flex justify-center">
+          <AppButton
+            label="Shift Down"
+            :shortcut="altLabel('↓')"
+            @click="editor.transform('Shift Down', charOps.shiftDown)"
+          >
+            <ArrowDown class="size-4" />
+          </AppButton>
+        </div>
+        <div class="flex justify-end">
+          <AppButton
+            label="Flip Vertical"
+            shortcut="V"
+            @click="editor.transform('Flip Vertical', charOps.flipV)"
+          >
+            <FlipVertical2 class="size-4" />
+          </AppButton>
         </div>
       </div>
-      <div class="flex justify-end">
-        <AppButton
-          label="Shift Right"
-          :shortcut="altLabel('→')"
-          @click="editor.transform('Shift Right', charOps.shiftRight)"
-        >
-          <ArrowRight class="size-4" />
-        </AppButton>
-      </div>
 
-      <AppButton
-        label="Flip Horizontal"
-        shortcut="H"
-        @click="editor.transform('Flip Horizontal', charOps.flipH)"
-      >
-        <FlipHorizontal2 class="size-4" />
-      </AppButton>
-      <div class="flex justify-center">
-        <AppButton
-          label="Shift Down"
-          :shortcut="altLabel('↓')"
-          @click="editor.transform('Shift Down', charOps.shiftDown)"
-        >
-          <ArrowDown class="size-4" />
-        </AppButton>
-      </div>
-      <div class="flex justify-end">
-        <AppButton
-          label="Flip Vertical"
-          shortcut="V"
-          @click="editor.transform('Flip Vertical', charOps.flipV)"
-        >
-          <FlipVertical2 class="size-4" />
-        </AppButton>
-      </div>
+      <ColorPicker />
+
+      <CharBytesBox :bytes="editor.currentPattern" />
     </div>
-
-    <ColorPicker />
-
-    <CharBytesBox :bytes="editor.currentPattern" />
   </section>
 </template>

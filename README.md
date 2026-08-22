@@ -50,8 +50,9 @@ Runs in a browser, or as a native app for macOS, Windows and Linux — see
   1–30 fps over the backdrop, with hardware 1×/2× magnification applied — see
   [Sprites](#sprites).
 - **Character set panel, three ways** — the set as two scaled blocks of 128, as a scrolling grid
-  of eight glyphs a row at a fixed size, or as a list carrying each character's code and whether
-  its slot is still blank. Pick whichever suits the window; the choice is remembered per browser.
+  that fills the width with 8, 16 or 32 glyphs a row, or as a list carrying each character's code
+  and whether its slot is still blank. Pick whichever suits the window; the choice is remembered
+  per browser, and a first visit on a phone starts in the grid.
 - **Sprite picker, three ways** — the whole set as one scaled sheet, as a scrolling grid of
   fixed-size slots, or as a list carrying each slot's number, the hardware patterns it occupies,
   its colour, and whether it is blank or invisible. Remembered per browser, and independent of
