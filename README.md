@@ -10,11 +10,18 @@ them out across one or more screens, and export the result as 6502 (`ca65`) or Z
 assembly, BASIC `DATA`, raw binary, or PNG. A dedicated **Multicolor** mode swaps glyph
 editing for a 64×48 grid of chunky 4×4 colour blocks, and **Sprite** mode covers the
 hardware's sprite layer — 8×8 or 16×16 patterns with animation playback. Everything runs
-client-side; projects are saved in your browser, downloadable as JSON, and shareable as a
-single self-contained link.
+client-side: there is no account, no server and nothing uploaded.
 
-Runs in a browser, or as a native app for macOS, Windows and Linux — see
-**[Desktop](#desktop)**.
+Runs in a browser, or as a native app for macOS, Windows and Linux — and the two keep
+projects differently, which is the one difference worth knowing before you start:
+
+- **In the browser**, projects live in that browser's storage, listed in a project manager,
+  downloadable as a file and shareable as a self-contained link.
+- **On the desktop**, a project *is* a file. `Star Voyager.tms9918` sits wherever you keep
+  it — beside the assembly in a game's repository, say — opens by double-click, and goes
+  through version control with everything else. There is no project list, because the
+  Finder, Explorer or file tree you already have open is the list. See
+  **[Desktop](#desktop)**.
 
 ![Editor screenshot](docs/screenshot.png)
 
@@ -63,17 +70,20 @@ Runs in a browser, or as a native app for macOS, Windows and Linux — see
   buttons for the character set and for screens, and your choice of label casing
   (see [Export](#export)).
 - **Share links** — hand someone the whole project as a URL (see [Sharing](#sharing)).
-- **Project manager** — every saved project in one list, each row carrying its mode, last-modified
-  time, and rename / duplicate / share / download / delete actions; the row splits over two lines
-  on phone-sized viewports so nothing crowds the name.
-- **Project-wide undo/redo**, debounced autosave to localStorage, and JSON import/export.
+- **Project manager** (the browser build) — every saved project in one list, each row carrying
+  its mode, last-modified time, and rename / duplicate / share / download / delete actions; the
+  row splits over two lines on phone-sized viewports so nothing crowds the name. The desktop app
+  has a start screen with recent documents instead — see [Desktop](#desktop).
+- **Project-wide undo/redo**, and a debounced autosave — to browser storage on the web, to the
+  open file on the desktop.
 - **Keyboard-driven** (see below) and **touch-friendly** — the layout collapses to
   two tabs on tablet-sized viewports.
 
 ## Sample Projects
 
-The project manager has a **Load a Sample** row with one project per mode — a good way to
-see the colour models in action or to start a screenshot:
+One project per mode ships with the editor — a good way to see the colour models in action
+or to start a screenshot. They are the **Load a Sample** row in the browser's project
+manager, and *New from Sample ▸* on the desktop, which asks where to put the new file:
 
 - **Text Greeting** — a complete printable-ASCII 5×7 font with a greeting and font sampler.
 - **Platform Climb** — a Graphics I arcade platformer (girders, ladders, barrels, a hero and a
@@ -189,8 +199,11 @@ Opening one offers to add a copy to that browser's project list; the original is
 Compression keeps typical projects to a few hundred characters up to a couple of KB. A maxed-out
 Graphics II project (three charsets, a per-row colour table, several screens) still lands in the
 single-digit KB range, but the dialog warns once a link passes ~2,000 characters, because some
-chat apps and link previewers truncate long URLs — send the downloaded `.tms9918.json` file in
-that case.
+chat apps and link previewers truncate long URLs — send the project file itself in that case.
+
+Share links are a **browser-build** feature: they are made and opened in the project manager,
+which the desktop app does not have. On the desktop the file *is* the portable copy — hand it
+over, or point someone at the published web app with a link made there.
 
 ## Keyboard Shortcuts
 
@@ -281,7 +294,7 @@ its animations, `+` / `-` zoom the animation preview, and `G` does nothing.
 | `.`     | Next animation              |
 | `Space` | Play or pause the animation |
 
-### Project list
+### Project list, or the desktop start screen
 
 | Key | Action             |
 | --- | ------------------ |
@@ -303,26 +316,87 @@ The same editor as a native app for macOS, Windows and Linux. Download it from t
 | Linux (x64) | `tms9918-editor-<version>-linux-x86_64.AppImage` | `chmod +x`, then run it |
 | Linux (x64) | `tms9918-editor-<version>-linux-amd64.deb` | `sudo apt install ./tms9918-editor-<version>-linux-amd64.deb` |
 
-Everything the web app does, the desktop app does — it is one renderer behind two shells,
-not a port. What it adds:
+It is the same editor — one renderer behind two shells, not a port — with one thing changed
+underneath it: **a project is a file.**
 
-- **A real menu bar**, with the keyboard map as accelerators. Menu items follow the open
-  project: a Sprite project says "Fill the sprite", a Multicolor project greys out the
-  pattern items, and the project list greys everything but *New project*.
-- **Native save and open dialogs.** Every export — assembly, BASIC, binary, PNG, project
-  JSON — goes through the system save sheet, so you choose the folder and the filename
-  instead of fishing the file out of `~/Downloads`. Each kind of export remembers the
-  directory you last used. Importing a project opens a real file panel.
-- **Its own storage.** Projects live in the app's own `userData` directory rather than in
-  a browser profile, so clearing browsing data cannot touch them, and they are flushed to
-  disk on the way out — an edit made a moment before you quit is there on relaunch.
+### Projects are files
+
+A project is a `.tms9918` file that you put wherever you want it, most usefully in the
+repository of whatever you are building. Double-click one and the editor launches straight
+into it; drop one on the window and it opens. The app holds **one document at a time**, and
+saves it in place as you work.
+
+There is no project list and no workspace to choose, because the file manager already is
+one. The trade is honest and worth stating: rename, duplicate and delete are Finder or
+Explorer operations now, not buttons in the app. *File ▸ Save a Copy…* covers the common
+case of branching off a variant.
+
+What you get instead of a list:
+
+- **A start screen** with *New Project…*, *New from Sample ▸*, *Open…* and **Recent
+  Documents** — the same recents that are in *File ▸ Open Recent ▸*, so a project you were
+  working on yesterday is two clicks away with no list to find it in.
+- **`Esc` closes the document** and returns to the start screen. (In the browser the same
+  key goes back to the project list.)
+- **Reveal in Finder** — *Show in Explorer* on Windows, *Show in Files* on Linux — for the
+  open document.
+
+The file itself is plain JSON, written to be read by `git diff`: one screen row per line,
+one character per line, and a stable key order, so a commit shows the eight bytes you
+changed rather than one 2000-character line. A project nobody edited is not rewritten, so
+an idle editor does not dirty your working tree.
+
+### It survives a `git checkout`
+
+The point of putting projects in a repository is switching branches, so the editor watches
+for the file changing underneath it:
+
+- A checkout under a **clean** document reloads it in place and says so quietly.
+- A checkout under **unsaved edits** asks, naming both versions, and writes nothing until
+  you answer.
+- Every write states what it expects to find on disk and is refused if the file moved, so a
+  debounced autosave landing 500 ms into a branch switch cannot overwrite the checkout.
+- A document deleted behind the app's back is reported rather than silently recreated.
+
+### The rest of what the shell adds
+
+- **A real menu bar.** File is a document app's — New Project…, New from Sample ▸, Open…,
+  Open Recent ▸, Close Document, Save, Save a Copy…, Reveal. Menu items follow the open
+  project: a Sprite project says "Fill the Sprite", a Multicolor project greys out the
+  pattern items, and the start screen greys everything but *New Project…*. The menu carries
+  **no accelerators** for the editor's own keys, deliberately — the keyboard map is the
+  page's job, exactly as on the web, and an accelerator would fire the action twice. Keys
+  are where they have always been, behind `?`.
+- **Native save and open dialogs.** Every export — assembly, BASIC, binary, PNG, a copy of
+  the project — goes through the system save sheet, so you choose the folder and the
+  filename instead of fishing the file out of `~/Downloads`. Each kind of export remembers
+  the directory you last used.
 - **A window that remembers itself**, including which display it was on and whether it was
-  maximized.
-- **No network at all.** The web app is already client-side; the desktop app has no
-  browser, no address bar and no tab.
+  maximized, and the document it had open — quit with a project open and relaunching returns
+  to it.
+- **No network at all.** The web app is already client-side; the desktop app has no browser,
+  no address bar and no tab.
 
-The desktop app's projects are **separate** from the web app's — different storage, no
-sync. Move one across with *Download* and *Upload* in the project list, or a share link.
+### Coming from version 1.6
+
+The `1.6` desktop app kept projects in browser storage inside the app. The first launch of
+`2.0` says what is about to happen and **copies** each of them into `~/Documents/TMS9918
+Editor`, then seeds Recent Documents so they are reachable. Nothing is moved: the originals
+stay in the app's browser storage until you press *Remove Browser Copies*, and only copies
+that were actually written are ever removed. A project that could not be read is named and
+skipped rather than dropped silently.
+
+Files downloaded from the web app — `.tms9918.json` — still open, through *Open…* or by
+dropping them on the window. They are not double-clickable, because claiming that extension
+on Windows would mean claiming `.json` system-wide.
+
+### The desktop app and the web app
+
+Different storage, no sync, and that has not changed. The web app's projects live in its
+browser storage; the desktop app's are files on disk. To move one across, *Download* from
+the browser and *Open…* it on the desktop, or *Save a Copy…* on the desktop and *Upload
+Project* into the browser. Share links stay a browser feature — they are made and opened in
+the project manager, which the desktop app does not have.
 
 ### Building the desktop app from source
 
@@ -366,13 +440,14 @@ npm run build      # the Electron bundle    → out/
 npm run build:web  # the standalone web app → dist/web/
 ```
 
-One renderer, two shells. `src/renderer/` is the editor and knows nothing about
-Electron; `src/main/` and `src/preload/` are the desktop shell, and `src/shared/`
-is the handful of types the two sides agree on. The platform differences the
-renderer *does* have — saving a file, mainly — sit behind small utilities that
-fall back to a browser download. See [CLAUDE.md](CLAUDE.md) for the layout and
-the decisions behind it, and [ELECTRON-PLAN.md](ELECTRON-PLAN.md) for the
-measurements they rest on.
+One renderer, **two entry points**. `src/renderer/` is the editor and knows nothing
+about Electron; `src/main/` and `src/preload/` are the desktop shell, and
+`src/shared/` is the handful of types the two sides agree on. Storage sits behind
+one async port with two adapters — browser storage and the open document — and the
+only view-layer difference between the shells is which home route `/` resolves to,
+decided once in the router. No component asks which shell it is in. See
+[CLAUDE.md](CLAUDE.md) for the layout and the decisions behind it, and
+[PLAN.md](PLAN.md) for the measurements they rest on.
 
 ## Deployment
 

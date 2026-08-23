@@ -1,6 +1,6 @@
 {
   "name": "tms9918-editor",
-  "version": "1.6.1",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "description": "Character set, screen and sprite editor for the TMS9918 Video Display Processor",
