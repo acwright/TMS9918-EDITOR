@@ -100,7 +100,9 @@ describe('projects store', () => {
       const store = useProjectsStore()
       const project = (await store.create({ name: 'My Project!', type: 'graphics1' }))!
       const payload = (await store.exportProject(project.id))!
-      expect(payload.filename).toBe('my-project.tms9918.json')
+      // The document name, not a slug and not the compound v1 extension: a
+      // download and a document are the same file now (D3, F7).
+      expect(payload.filename).toBe('My Project!.tms9918')
 
       await store.remove(project.id)
       const imported = (await store.importProject(payload.json))!

@@ -16,7 +16,8 @@
  */
 
 import type { ProjectType } from '@/domain/types'
-import { MENU_ACTIONS, type MenuActionItem, type MenuContext } from '@shared/menu'
+import { SAMPLES } from '@/samples'
+import { MENU_ACTIONS, type MenuActionItem, type MenuContext, type MenuSample } from '@shared/menu'
 import { desktop } from './desktop'
 import { MANAGER_SHORTCUTS, editorActionsFor, shell } from './shortcuts'
 
@@ -55,14 +56,41 @@ export function actionLabel(action: string, type: ProjectType | null = null): st
   return entry ? menuLabel(entry, type, shell() === 'desktop') : action
 }
 
-/** What the menu offers while a project of `type` is open. */
+/**
+ * *New from Sample ▸*, as main needs it (F7).
+ *
+ * Both views report the same list because the samples are the app's, not the
+ * view's — what changes between them is what else is live, not which samples
+ * exist. Names only: the build function stays on this side, and main sends back
+ * the id it was given.
+ */
+function menuSamples(): MenuSample[] {
+  return SAMPLES.map((sample) => ({ id: sample.id, name: sample.name }))
+}
+
+/**
+ * What the menu offers while a project of `type` is open.
+ *
+ * `newProject` is live here as well as on the start screen: File ▸ New Project…
+ * has to work while a document is open, and D17 says what happens then — the
+ * editor flushes into the file it has, and the new document replaces it.
+ * `saveCopy` is the menu's own command (F7), and needs a project to copy.
+ */
 export function editorMenuContext(type: ProjectType | null): MenuContext {
-  return { enabled: editorActionsFor(type), labels: labelsFor(type) }
+  return {
+    enabled: [...editorActionsFor(type), 'newProject', 'saveCopy'],
+    labels: labelsFor(type),
+    samples: menuSamples(),
+  }
 }
 
 /** What the menu offers on the project list, where no project is open. */
 export function managerMenuContext(): MenuContext {
-  return { enabled: MANAGER_SHORTCUTS.map((entry) => entry.action), labels: labelsFor(null) }
+  return {
+    enabled: MANAGER_SHORTCUTS.map((entry) => entry.action),
+    labels: labelsFor(null),
+    samples: menuSamples(),
+  }
 }
 
 /** Tell the native menu what this view offers. */
