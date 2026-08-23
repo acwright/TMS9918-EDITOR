@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ArrowLeft, Keyboard } from 'lucide-vue-next'
+import { ArrowLeft, Keyboard, X } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/base/AppButton.vue'
 import HelpDialog from '@/components/HelpDialog.vue'
@@ -229,6 +229,20 @@ watch(
         <Keyboard class="size-4" />
       </AppButton>
     </header>
+
+    <!-- A document that would not open while this one is fine — a double-click
+         on a corrupt file, or one that has since moved. What is on screen keeps
+         working; the banner is the only thing that changes (F4). -->
+    <div
+      v-if="store.lastError && openState === 'ready'"
+      class="mx-4 mt-3 flex items-center justify-between gap-3 rounded-sm border border-vdp-dark-red bg-vdp-dark-red/15 px-3 py-2 text-sm text-ink-100"
+      role="alert"
+    >
+      <p>{{ store.lastError }}</p>
+      <AppButton label="Dismiss" @click="store.dismissError()">
+        <X class="size-4" />
+      </AppButton>
+    </div>
 
     <main
       v-if="openState === 'loading'"
