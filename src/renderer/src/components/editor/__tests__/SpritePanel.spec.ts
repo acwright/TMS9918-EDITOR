@@ -6,6 +6,7 @@ import PixelEditor from '../PixelEditor.vue'
 import CharBytesBox from '../CharBytesBox.vue'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import { openTestProject } from '@/testing/project'
 
 /** Open a real sprite project so the panel wires against the actual store. */
 function setup(spriteSize: 8 | 16 = 16) {
@@ -13,8 +14,7 @@ function setup(spriteSize: 8 | 16 = 16) {
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'S', type: 'sprite', spriteSize })!
-  projects.open(project.id)
+  openTestProject({ name: 'S', type: 'sprite', spriteSize })
   editor.reset()
   return { projects, editor, wrapper: mount(SpritePanel) }
 }

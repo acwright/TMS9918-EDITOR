@@ -6,6 +6,7 @@ import { loadPreferences } from '@/persistence/preferences'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
 import { SPRITE_VIEWS } from '@/utils/spriteView'
+import { openTestProject } from '@/testing/project'
 import SpritePicker from '../SpritePicker.vue'
 
 /**
@@ -34,8 +35,7 @@ function mountPicker(
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'Test', type: 'sprite', ...options })!
-  projects.open(project.id)
+  openTestProject({ name: 'Test', type: 'sprite', ...options })
   editor.reset()
 
   const wrapper = mount(SpritePicker, { global: { stubs: { ExportDialog: true } } })

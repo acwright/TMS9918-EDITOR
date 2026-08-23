@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import * as charOps from '@/domain/charOps'
 import { isGraphics1Colors, isGraphics2Colors, isTextColors } from '@/domain/types'
+import { openTestProject } from '@/testing/project'
 import { useEditorStore } from '../editor'
 import { useProjectsStore } from '../projects'
 
@@ -13,8 +14,7 @@ function setup(
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'Test', type, spriteSize: options.spriteSize })!
-  projects.open(project.id)
+  openTestProject({ name: 'Test', type, spriteSize: options.spriteSize })
   editor.reset()
   return { projects, editor }
 }

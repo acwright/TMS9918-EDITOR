@@ -5,6 +5,7 @@ import * as charOps from '@/domain/charOps'
 import type { CreateProjectOptions } from '@/domain/factory'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import { openTestProject } from '@/testing/project'
 import CharsetList from '../CharsetList.vue'
 
 /**
@@ -23,8 +24,7 @@ function mountList(options: Partial<CreateProjectOptions> = {}) {
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'Test', type: 'graphics1', ...options })!
-  projects.open(project.id)
+  openTestProject({ name: 'Test', type: 'graphics1', ...options })
   editor.reset()
   const wrapper = mount(CharsetList)
   return { wrapper, projects, editor }

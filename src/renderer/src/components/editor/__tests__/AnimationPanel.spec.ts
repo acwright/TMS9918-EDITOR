@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import AnimationPanel from '../AnimationPanel.vue'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import { openTestProject } from '@/testing/project'
 
 /** Captured rAF callbacks, so the playback loop can be driven frame by frame. */
 let frames: FrameRequestCallback[] = []
@@ -13,8 +14,7 @@ function setup() {
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'S', type: 'sprite', spriteSize: 16 })!
-  projects.open(project.id)
+  openTestProject({ name: 'S', type: 'sprite', spriteSize: 16 })
   editor.reset()
   return { projects, editor, wrapper: mount(AnimationPanel) }
 }

@@ -24,15 +24,29 @@ const router = useRouter()
 const store = useProjectsStore()
 const editor = useEditorStore()
 
+/**
+ * Opening is async now that storage is (PLAN.md D1), so the view has three
+ * states rather than two: it is loading, it has a project, or the project
+ * could not be read. Without the first, the missing-project panel flashes on
+ * every navigation while the load is in flight.
+ */
+type OpenState = 'loading' | 'ready' | 'missing'
+const openState = ref<OpenState>('loading')
+
 watch(
   () => props.projectId,
-  (id) => {
-    store.open(id)
+  async (id) => {
+    openState.value = 'loading'
+    const project = await store.open(id)
+    // A newer navigation can land mid-load. The store already drops the stale
+    // result; this drops the stale view state that would follow it.
+    if (id !== props.projectId) return
+    openState.value = project ? 'ready' : 'missing'
     editor.reset()
   },
   { immediate: true },
 )
-onBeforeUnmount(() => store.close())
+onBeforeUnmount(() => void store.close())
 
 const SAVE_STATE_LABEL = { saved: 'Saved', saving: 'Saving…', unsaved: 'Unsaved' } as const
 
@@ -199,8 +213,18 @@ watch(
       </AppButton>
     </header>
 
+    <main
+      v-if="openState === 'loading'"
+      class="flex flex-1 items-center justify-center text-ink-500"
+    >
+      <p class="font-display text-2xl tracking-wider">Opening…</p>
+    </main>
+
     <!-- Multicolor: slim colour rail + full-width screen; no tabs, no Character panel -->
-    <main v-if="store.current && isMulticolor" class="flex min-h-0 flex-1 flex-col lg:flex-row">
+    <main
+      v-else-if="store.current && isMulticolor"
+      class="flex min-h-0 flex-1 flex-col lg:flex-row"
+    >
       <aside
         class="shrink-0 overflow-x-hidden overflow-y-auto border-b border-ink-800 p-4 lg:w-64 lg:border-r lg:border-b-0"
       >
@@ -297,9 +321,18 @@ watch(
     </main>
 
     <main v-else class="flex flex-1 items-center justify-center text-ink-500">
-      <div class="text-center">
-        <p class="font-display text-2xl tracking-wider">Project not found</p>
-        <p class="text-sm">It may have been deleted or this link is stale.</p>
+      <div class="flex flex-col items-center gap-4 text-center">
+        <div>
+          <p class="font-display text-2xl tracking-wider">This project could not be opened</p>
+          <p class="text-sm">It may have been deleted, or this link is stale.</p>
+        </div>
+        <button
+          type="button"
+          class="font-display rounded-sm border border-ink-600 px-3 py-2 text-sm tracking-wider text-ink-200 transition-colors hover:bg-ink-800"
+          @click="router.push('/')"
+        >
+          Back to Projects
+        </button>
       </div>
     </main>
 

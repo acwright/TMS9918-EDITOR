@@ -6,6 +6,7 @@ import { loadPreferences } from '@/persistence/preferences'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
 import { CHARSET_VIEWS } from '@/utils/charsetView'
+import { openTestProject } from '@/testing/project'
 import CharsetPicker from '../CharsetPicker.vue'
 
 /**
@@ -33,8 +34,7 @@ function mountPicker(
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'Test', type: 'graphics1', ...options })!
-  projects.open(project.id)
+  openTestProject({ name: 'Test', type: 'graphics1', ...options })
   editor.reset()
 
   const wrapper = mount(CharsetPicker, { global: { stubs: { ExportDialog: true } } })

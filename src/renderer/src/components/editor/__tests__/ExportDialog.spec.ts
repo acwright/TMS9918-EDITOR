@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import ExportDialog from '../ExportDialog.vue'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import { openTestProject } from '@/testing/project'
 
 /** Open a real sprite project and mount the dialog in sprite scope. */
 function setup(spriteSize: 8 | 16 = 16) {
@@ -11,8 +12,7 @@ function setup(spriteSize: 8 | 16 = 16) {
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'Astro Ace', type: 'sprite', spriteSize })!
-  projects.open(project.id)
+  openTestProject({ name: 'Astro Ace', type: 'sprite', spriteSize })
   editor.reset()
   const wrapper = mount(ExportDialog, {
     props: { modelValue: true, scope: 'sprite' as const },

@@ -5,6 +5,7 @@ import * as spriteOps from '@/domain/spriteOps'
 import type { SpriteSize } from '@/domain/types'
 import { useEditorStore } from '@/stores/editor'
 import { useProjectsStore } from '@/stores/projects'
+import { openTestProject } from '@/testing/project'
 import SpriteList from '../SpriteList.vue'
 
 /**
@@ -24,8 +25,7 @@ function mountList(spriteSize: SpriteSize = 8) {
   setActivePinia(createPinia())
   const projects = useProjectsStore()
   const editor = useEditorStore()
-  const project = projects.create({ name: 'S', type: 'sprite', spriteSize })!
-  projects.open(project.id)
+  openTestProject({ name: 'S', type: 'sprite', spriteSize })
   editor.reset()
   const wrapper = mount(SpriteList)
   return { wrapper, projects, editor }
@@ -140,10 +140,8 @@ describe('SpriteList', () => {
 
   it('opens on the selection, since switching layout is not a selection change', () => {
     setActivePinia(createPinia())
-    const projects = useProjectsStore()
     const editor = useEditorStore()
-    const project = projects.create({ name: 'S', type: 'sprite' })!
-    projects.open(project.id)
+    openTestProject({ name: 'S', type: 'sprite' })
     editor.reset()
     editor.selectSprite(90) // picked in the sheet, before this list existed
 
