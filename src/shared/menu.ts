@@ -9,6 +9,12 @@
  * every action in the union appears here exactly once, and nothing here is an
  * action the map does not declare.
  *
+ * A handful of items are worded differently in the two shells, for the same
+ * reason the shortcut map words their descriptions differently: on the desktop
+ * `back` closes a document rather than returning to a list that does not exist
+ * there (D14). The renderer picks, because it is the side that knows which
+ * shell it is; main is sent the answer.
+ *
  * Labels are **menu titles, not the shortcut descriptions**: Title Case, and as
  * short as the surrounding menu allows, per the macOS HIG. "Save now" reads
  * correctly in the help sheet and wrongly in a File menu, so the two are worded
@@ -42,6 +48,13 @@ export interface MenuActionItem {
    * read correctly in every mode.
    */
   spriteLabel?: string
+  /**
+   * The title in the desktop shell, for an item that acts on a *document*
+   * rather than on a list (D14). Only an action whose shortcut carries a
+   * `desktopDescription` may have one, and it wins over `spriteLabel` — the
+   * same precedence the shortcut map uses.
+   */
+  desktopLabel?: string
   section: MenuSection
   /** Start a new separated group at this item. */
   separatorBefore?: boolean
@@ -52,7 +65,15 @@ export const MENU_ACTIONS: readonly MenuActionItem[] = [
   // before it does anything.
   { action: 'newProject', label: 'New Project…', section: 'file' },
   { action: 'save', label: 'Save', section: 'file', separatorBefore: true },
-  { action: 'back', label: 'Back to Projects', section: 'file', separatorBefore: true },
+  {
+    action: 'back',
+    label: 'Back to Projects',
+    // The desktop has no project list to go back to; it has a document to
+    // close, and the start screen behind it (§4, D14).
+    desktopLabel: 'Close Document',
+    section: 'file',
+    separatorBefore: true,
+  },
 
   { action: 'undo', label: 'Undo', section: 'edit' },
   { action: 'redo', label: 'Redo', section: 'edit' },

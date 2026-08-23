@@ -12,15 +12,30 @@
  * prefixes, in that order. `Mod` is Ctrl on Windows/Linux and Cmd on Apple
  * platforms — the same key under both names, as every other editor spells it.
  *
- * Matching is mode-aware, because the modes are not the same editor: a sprite
- * project has no screen, so `,` / `.` page its animations, and a multicolor
- * project has no character panel, so the pattern keys mean nothing there. A
- * key that means nothing in the open mode does not match, which is what keeps
- * `Space` out of the way of a focused button outside sprite projects.
+ * Matching is mode-aware, and the *wording* is shell-aware as well. The two
+ * shells are not the same app: on the desktop there is no project list to go
+ * back to, so Escape closes the document (D14). The key and the action id are
+ * unchanged — only what they are called is — and `shell()` answers that
+ * question once, here, so no component branches on it.
+ *
+ * The modes are not the same editor: a sprite project has no screen, so
+ * `,` / `.` page its animations, and a multicolor project has no character
+ * panel, so the pattern keys mean nothing there. A key that means nothing in
+ * the open mode does not match, which is what keeps `Space` out of the way of a
+ * focused button outside sprite projects.
  */
 
 import type { ProjectType } from '@/domain/types'
+import { isDesktop } from './desktop'
 import { isMac } from './platform'
+
+/** Which shell is running. The desktop edits documents; the browser, a list. */
+export type Shell = 'browser' | 'desktop'
+
+/** The running shell. Read at call time, so a test can stub `window.api`. */
+export function shell(): Shell {
+  return isDesktop() ? 'desktop' : 'browser'
+}
 
 /** Everything the editor view acts on. */
 export type EditorAction =
@@ -67,6 +82,13 @@ export interface Shortcut<A extends string = string> {
   description: string
   /** The description in a sprite project, where a few keys mean something else. */
   spriteDescription?: string
+  /**
+   * The description in the desktop shell, for the handful of keys that act on
+   * a *document* rather than on a list (D14). Takes precedence over
+   * `spriteDescription`, because a shell difference is the larger one — no key
+   * currently carries both.
+   */
+  desktopDescription?: string
   /** `screen` — everywhere but sprite projects; `sprite` — only there. */
   only?: 'screen' | 'sprite'
   group: GroupId
@@ -77,7 +99,14 @@ export const EDITOR_SHORTCUTS: readonly Shortcut<EditorAction>[] = [
   { action: 'redo', keys: ['Shift+Mod+Z'], description: 'Redo', group: 'project' },
   { action: 'save', keys: ['Mod+S'], description: 'Save now', group: 'project' },
   { action: 'help', keys: ['?'], description: 'Keyboard shortcuts', group: 'project' },
-  { action: 'back', keys: ['Escape'], description: 'Back to the project list', group: 'project' },
+  {
+    action: 'back',
+    keys: ['Escape'],
+    description: 'Back to the project list',
+    // There is no list on the desktop; the OS is the project list (§4).
+    desktopDescription: 'Close the document',
+    group: 'project',
+  },
 
   {
     action: 'prevChar',
@@ -239,8 +268,9 @@ export interface ShortcutSection {
   shortcuts: readonly Shortcut[]
 }
 
-/** The description a shortcut carries in this mode. */
+/** The description a shortcut carries in this mode, in this shell. */
 export function describeShortcut(shortcut: Shortcut, type: ProjectType | null): string {
+  if (shell() === 'desktop' && shortcut.desktopDescription) return shortcut.desktopDescription
   return type === 'sprite' && shortcut.spriteDescription
     ? shortcut.spriteDescription
     : shortcut.description

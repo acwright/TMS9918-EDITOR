@@ -1,7 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MENU_ACTIONS } from '@shared/menu'
-import { editorMenuContext, managerMenuContext } from '../menu'
-import { EDITOR_SHORTCUTS, MANAGER_SHORTCUTS } from '../shortcuts'
+import { actionLabel, editorMenuContext, managerMenuContext } from '../menu'
+import { EDITOR_SHORTCUTS, MANAGER_SHORTCUTS, describeShortcut } from '../shortcuts'
+
+/**
+ * Pretend the preload bridge is there, which is the only thing that makes
+ * `isDesktop()` — and so `shell()` — answer 'desktop'. Nothing here calls the
+ * bridge; the wording functions only ask whether it exists.
+ */
+function asDesktop(): void {
+  vi.stubGlobal('api', {})
+}
 
 /**
  * The native menu's table lives in `src/shared/` because the main process
@@ -99,6 +108,17 @@ describe('the menu table', () => {
     expect(wrong).toEqual([])
   })
 
+  it('re-words only the items the shortcut map says change on the desktop', () => {
+    // The same rule the sprite labels follow: the map decides which actions
+    // mean something different, and the menu only supplies the title (D14).
+    const varies = new Set<string>(
+      EDITOR_SHORTCUTS.filter((entry) => entry.desktopDescription).map((entry) => entry.action),
+    )
+    const reworded = MENU_ACTIONS.filter((entry) => entry.desktopLabel).map((entry) => entry.action)
+    expect(reworded).not.toEqual([])
+    expect(reworded.filter((action) => !varies.has(action))).toEqual([])
+  })
+
   it('re-words only the items the shortcut map says change in a sprite project', () => {
     const varies = new Set<string>(
       EDITOR_SHORTCUTS.filter((entry) => entry.spriteDescription).map((entry) => entry.action),
@@ -157,5 +177,49 @@ describe('what the menu offers', () => {
       const labels = editorMenuContext(type).labels
       for (const entry of MENU_ACTIONS) expect(labels[entry.action]).toBeTruthy()
     }
+  })
+})
+
+/**
+ * The wording fork (D14). It is the only thing the two shells say differently,
+ * and it is decided in the map and the menu table rather than in a view — so
+ * this is where both halves are held together.
+ */
+describe('the desktop shell', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('closes the document where the browser goes back to a list', () => {
+    expect(actionLabel('back')).toBe('Back to Projects')
+    asDesktop()
+    expect(actionLabel('back')).toBe('Close Document')
+  })
+
+  it('sends main the shell wording, so main never asks which shell it is', () => {
+    asDesktop()
+    expect(editorMenuContext('graphics1').labels['back']).toBe('Close Document')
+    expect(managerMenuContext().labels['back']).toBe('Close Document')
+  })
+
+  it('words the help sheet to match its menu item', () => {
+    const back = EDITOR_SHORTCUTS.find((entry) => entry.action === 'back')!
+    expect(describeShortcut(back, null)).toBe('Back to the project list')
+    asDesktop()
+    expect(describeShortcut(back, null)).toBe('Close the document')
+  })
+
+  it('leaves every other item alone', () => {
+    const browser = editorMenuContext('sprite').labels
+    asDesktop()
+    const desktop = editorMenuContext('sprite').labels
+    const differ = Object.keys(desktop).filter((action) => desktop[action] !== browser[action])
+    expect(differ).toEqual(['back'])
+  })
+
+  it('offers the same actions in both shells — only the wording forks', () => {
+    const browser = editorMenuContext('graphics1').enabled
+    asDesktop()
+    expect(editorMenuContext('graphics1').enabled).toEqual(browser)
   })
 })

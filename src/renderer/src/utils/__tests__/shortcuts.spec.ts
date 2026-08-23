@@ -193,10 +193,11 @@ describe('labels', () => {
 
 /**
  * The map is only documented if something checks it. Each shortcut owns one
- * README row, written in the platform-neutral spelling — and a second row for
- * the sprite-mode wording where the key means something else there — so a key
- * added to the map without a line in the README fails here rather than at the
- * first user who goes looking for it.
+ * README row, written in the platform-neutral spelling — and a further row for
+ * each wording the key takes elsewhere: the sprite-mode one where it means
+ * something else there, and the desktop one where it acts on a document rather
+ * than on a list (D14). A key added to the map without a line in the README
+ * fails here rather than at the first user who goes looking for it.
  */
 describe('README', () => {
   // Vitest's root is the project root; under jsdom `import.meta.url` is an
@@ -218,7 +219,11 @@ describe('README', () => {
   it('carries a row for every shortcut', () => {
     for (const shortcut of [...EDITOR_SHORTCUTS, ...LIST_SHORTCUTS, ...MANAGER_SHORTCUTS]) {
       const keys = shortcut.keys.map((key) => `\`${keyText(key)}\``).join(' / ')
-      for (const description of [shortcut.description, shortcut.spriteDescription]) {
+      for (const description of [
+        shortcut.description,
+        shortcut.spriteDescription,
+        shortcut.desktopDescription,
+      ]) {
         if (!description) continue
         const documented = rows.some((row) => row[0] === keys && row[1] === description)
         expect(documented, `${shortcut.action} (${keys}) is undocumented: ${description}`).toBe(
