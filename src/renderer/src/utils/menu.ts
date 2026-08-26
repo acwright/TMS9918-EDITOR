@@ -19,7 +19,7 @@ import type { ProjectType } from '@/domain/types'
 import { SAMPLES } from '@/samples'
 import { MENU_ACTIONS, type MenuActionItem, type MenuContext, type MenuSample } from '@shared/menu'
 import { desktop } from './desktop'
-import { MANAGER_SHORTCUTS, editorActionsFor, shell } from './shortcuts'
+import { MANAGER_SHORTCUTS, editorActionsFor, menuAccelerators, shell } from './shortcuts'
 
 /**
  * Every menu title, worded for the open mode. Main is sent the whole table
@@ -80,6 +80,7 @@ export function editorMenuContext(type: ProjectType | null): MenuContext {
   return {
     enabled: [...editorActionsFor(type), 'newProject', 'saveCopy'],
     labels: labelsFor(type),
+    accelerators: menuAccelerators(),
     samples: menuSamples(),
   }
 }
@@ -89,6 +90,7 @@ export function managerMenuContext(): MenuContext {
   return {
     enabled: MANAGER_SHORTCUTS.map((entry) => entry.action),
     labels: labelsFor(null),
+    accelerators: menuAccelerators(),
     samples: menuSamples(),
   }
 }

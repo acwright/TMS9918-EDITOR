@@ -218,7 +218,7 @@ is `⇧`.
 | ------------------ | ------------------------ |
 | `Ctrl/Cmd+Z`       | Undo                     |
 | `Shift+Ctrl/Cmd+Z` | Redo                     |
-| `Ctrl/Cmd+S`       | Save now                 |
+| `Ctrl/Cmd+S`       | Save                     |
 | `?`                | Keyboard shortcuts       |
 | `Esc`              | Back to the project list |
 | `Esc`              | Close the document       |
